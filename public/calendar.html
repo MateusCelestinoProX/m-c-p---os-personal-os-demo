@@ -1,0 +1,2412 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+    <title>M.C.P Calendar & Time OS — Pure Calendar Mode</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/brand/icon.png">
+    <link rel="apple-touch-icon" href="assets/brand/icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,600;0,700;0,800;1,400&family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Cinzel:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        (function() {
+            // 1. Sincronização Síncrona de Insets Samsung Galaxy S22 Ultra
+            function syncAndroidInsets() {
+                try {
+                    if (window.AndroidBridge && typeof window.AndroidBridge.getSafeTop === 'function') {
+                        const top = window.AndroidBridge.getSafeTop();
+                        const bottom = window.AndroidBridge.getSafeBottom();
+                        if (top && top >= 40) document.documentElement.style.setProperty('--safe-top', top + 'px');
+                        if (bottom && bottom >= 16) document.documentElement.style.setProperty('--safe-bottom', bottom + 'px');
+                    }
+                } catch(e) {}
+            }
+            syncAndroidInsets();
+            window.addEventListener('androidbridge:ready', syncAndroidInsets);
+            document.addEventListener('DOMContentLoaded', syncAndroidInsets);
+
+            // 2. Sistema de Cookie Gêmeo & Anti-Flicker Síncrono (Zero tela de login entre telas)
+            try {
+                const hasPersonalToken = localStorage.getItem('personal_os_local_token');
+                const hasTimeToken = localStorage.getItem('time_os_auth_token');
+                const hasSession = localStorage.getItem('mcp_auth_session');
+                const hasCookie = document.cookie.indexOf('mcp_auth_session=1') !== -1 || document.cookie.indexOf('personal_os_local_token') !== -1 || document.cookie.indexOf('time_os_auth_token') !== -1;
+                const hasSupabase = Object.keys(localStorage).some(k => k.startsWith('sb-') && k.endsWith('-auth-token') && localStorage.getItem(k));
+
+                const isAuth = Boolean(hasPersonalToken || hasTimeToken || hasSession || hasCookie || hasSupabase);
+                if (isAuth) {
+                    const token = hasPersonalToken || hasTimeToken || ('mcp_twin_jwt_' + Date.now());
+                    if (!hasPersonalToken) localStorage.setItem('personal_os_local_token', token);
+                    if (!hasTimeToken) localStorage.setItem('time_os_auth_token', token);
+                    if (!hasSession) localStorage.setItem('mcp_auth_session', JSON.stringify({ authenticated: true, role: 'owner', email: 'mateus.celestino@demo.os' }));
+                    document.cookie = 'mcp_auth_session=1; path=/; max-age=31536000; SameSite=Lax';
+                    document.cookie = 'personal_os_local_token=' + encodeURIComponent(token) + '; path=/; max-age=31536000; SameSite=Lax';
+                    document.cookie = 'time_os_auth_token=' + encodeURIComponent(token) + '; path=/; max-age=31536000; SameSite=Lax';
+
+                    document.documentElement.classList.add('mcp-authenticated');
+                    const antiFlicker = document.createElement('style');
+                    antiFlicker.id = 'mcp-anti-flicker-style';
+                    antiFlicker.textContent = '#personal-os-auth-gate, #auth-screen-overlay, .auth-screen-overlay { display: none !important; opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; }';
+                    document.head.appendChild(antiFlicker);
+                }
+            } catch(e) {}
+        })();
+    </script>
+    <script src="assets/vendor/tailwind.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        vanta: '#030305',
+                        obsidian: '#08080c',
+                        platinum: '#f5f5f7',
+                        graphite: '#86868b',
+                    },
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                        outfit: ['"Outfit"', 'sans-serif'],
+                        serif: ['"Cinzel"', 'serif'],
+                    }
+                }
+            }
+        };
+    </script>
+    <script src="assets/vendor/three.min.js"></script>
+    <script src="assets/vendor/gsap.min.js"></script>
+    <script src="assets/vendor/supabase.js"></script>
+    <script src="js/glass-dialog.js"></script>
+    <script src="js/habit-tracker.js"></script>
+    <script src="js/control-engine.js"></script>
+    <script type="module" src="js/webgl-backgrounds.js"></script>
+
+    <style>
+        :root {
+            --trip-accent: #f59e0b;
+            --studies-accent: #0ea5e9;
+            --reminders-accent: #8b5cf6;
+            --todos-accent: #10b981;
+            --habits-accent: #10b981;
+            --cartas-accent: #ec4899;
+            --safe-top: max(env(safe-area-inset-top, 0px), 52px);
+            --safe-bottom: max(env(safe-area-inset-bottom, 0px), 24px);
+        }
+
+        body {
+            background-color: #030305;
+            color: #f5f5f7;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            overflow-x: hidden;
+            width: 100%;
+            max-width: 100vw;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        #bg-webgl-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+            opacity: 0.92;
+        }
+
+        .liquid-glass-panel {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(14, 13, 22, 0.55) 100%);
+            backdrop-filter: blur(28px) saturate(190%);
+            -webkit-backdrop-filter: blur(28px) saturate(190%);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.65), inset 0 1px 2px rgba(255, 255, 255, 0.25);
+        }
+
+        .input-glass {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: white;
+            transition: all 0.2s ease;
+        }
+        .input-glass:focus {
+            background: rgba(255, 255, 255, 0.09);
+            border-color: rgba(255, 255, 255, 0.4);
+            outline: none;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.12);
+        }
+
+        .ultra-liquid-glass-backdrop {
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+        }
+        .ultra-liquid-glass-modal {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(12, 10, 20, 0.88) 100%);
+            backdrop-filter: blur(36px) saturate(210%);
+            -webkit-backdrop-filter: blur(36px) saturate(210%);
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            box-shadow: 0 35px 90px rgba(0, 0, 0, 0.8), inset 0 1px 2px rgba(255, 255, 255, 0.35);
+        }
+
+        /* Shader Modal CSS */
+        .shader-btn {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 0.65rem 0.8rem;
+            border-radius: 1rem;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            color: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+            transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, border-color 0.2s ease;
+            cursor: pointer;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            min-height: 60px;
+        }
+        @media (min-width: 640px) {
+            .shader-btn {
+                min-height: 72px;
+                padding: 0.75rem 0.95rem;
+            }
+        }
+        .shader-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(168, 85, 247, 0.5);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+        }
+        .shader-btn:active {
+            transform: scale(0.97);
+        }
+        .shader-btn.active-shader {
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.28) 0%, rgba(99, 102, 241, 0.22) 100%) !important;
+            border-color: rgba(192, 132, 252, 0.95) !important;
+            color: #ffffff !important;
+            box-shadow: 0 0 24px rgba(168, 85, 247, 0.45), inset 0 0 12px rgba(192, 132, 252, 0.25) !important;
+            font-weight: bold;
+        }
+        .shader-filter-pill {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-family: monospace;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #d1d5db;
+            transition: all 0.15s ease;
+            cursor: pointer;
+            white-space: nowrap;
+            touch-action: manipulation;
+        }
+        .shader-filter-pill:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+        }
+        .shader-filter-pill.active-pill {
+            background: rgba(168, 85, 247, 0.3);
+            border-color: rgba(192, 132, 252, 0.6);
+            color: #f3e8ff;
+            font-weight: 600;
+        }
+
+    
+        /* =========================================================
+           ULTRA-MOBILE OPTIMIZATIONS & TOUCH ERGONOMICS
+           ========================================================= */
+        html {
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+            text-rendering: optimizeLegibility;
+            touch-action: manipulation;
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            overflow-x: hidden;
+            overflow-y: auto !important;
+            max-width: 100vw;
+            width: 100%;
+            height: auto;
+            min-height: 100%;
+        }
+
+        body {
+            padding: 0;
+            margin: 0;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Limites Estritos de Cartões Mobile */
+        .mobile-card-contained {
+            width: 100%;
+            max-width: 100%;
+            overflow: hidden;
+            word-break: break-word;
+            box-sizing: border-box;
+        }
+
+        /* Prevenir zoom indesejado no iOS Safari ao focar inputs */
+        @media (max-width: 768px) {
+            input:not([type="checkbox"]):not([type="radio"]), select, textarea {
+                font-size: 16px !important;
+            }
+            .monumental-time-text {
+                font-size: clamp(2.2rem, 10vw, 5.5rem) !important;
+                letter-spacing: -0.04em !important;
+            }
+            .monumental-sec-text {
+                font-size: clamp(1.2rem, 4.5vw, 2.5rem) !important;
+            }
+        }
+
+        /* Tap Targets & feedback touch nativo */
+        button, a, input, select, textarea, [role="button"] {
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Modal containment no mobile */
+        .ultra-liquid-glass-modal {
+            max-height: 90dvh !important;
+            overscroll-behavior: contain;
+        }
+
+        /* Scrollbar oculta elegante para barras de categorias */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+    </style>
+</head>
+<body class="selection:bg-rose-500 selection:text-white">
+
+    <!-- WebGL Background Canvas Container (Herdado do Personal OS) -->
+    <div id="bg-webgl-container"></div>
+
+    <!-- MAIN APP WRAPPER (Z-INDEX: 10) -->
+    <div class="relative z-10 min-h-screen flex flex-col justify-between px-2.5 sm:px-6 py-3 sm:py-6 lg:p-8 max-w-[1600px] mx-auto space-y-4 sm:space-y-6 w-full max-w-full" style="padding-top: calc(0.5rem + var(--safe-top)); padding-bottom: calc(5rem + var(--safe-bottom));">
+
+        <!-- =========================================================
+             1. HEADER UNIVERSAL & DUAL MODE TOGGLE
+             ========================================================= -->
+        <header class="flex items-center justify-between gap-1.5 sm:gap-4 pb-2.5 sm:pb-4 border-b border-white/10 shrink-0 w-full max-w-full">
+            
+            <!-- Left: Back Button & System Brand -->
+            <div class="flex items-center gap-1.5 sm:gap-3 min-w-0">
+                <a href="index.html" class="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-white/10 hover:bg-white/20 border border-white/15 text-white font-mono text-xs font-bold transition flex items-center gap-1 sm:gap-2 shadow-lg active:scale-95 cursor-pointer shrink-0 min-h-[38px] sm:min-h-[42px]" title="Voltar para a Home do Personal OS">
+                    <span>←</span>
+                    <span class="hidden sm:inline">Personal OS</span>
+                    <span class="sm:hidden">Voltar</span>
+                </a>
+                <div class="hidden md:flex items-center gap-2 pl-2 border-l border-white/10">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    <span class="text-xs font-mono text-gray-300 font-semibold tracking-wider uppercase">M.C.P MASTER MODE</span>
+                </div>
+            </div>
+
+            <!-- Center: Pure Calendar Title Badge -->
+            <div class="flex items-center px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-black/40 border border-white/15 backdrop-blur-2xl shadow-xl shrink-0">
+                <span class="text-xs sm:text-sm font-mono font-bold text-white flex items-center gap-1.5 sm:gap-2">
+                    <span>📅</span>
+                    <span class="hidden sm:inline">Calendário Pessoal & Executivo</span>
+                    <span class="sm:hidden">Calendário</span>
+                </span>
+            </div>
+
+            <!-- Right: Links Dedicados, Realtime Badge & Quick Fullscreen -->
+            <div class="flex items-center gap-1 sm:gap-2 shrink-0">
+                <a href="chat.html" class="px-2 sm:px-3.5 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/35 text-sky-200 font-mono text-xs font-bold transition flex items-center gap-1 sm:gap-1.5 shadow-lg active:scale-95 min-h-[38px] sm:min-h-[42px]" title="Tutor AI & Rotina">
+                    <span>🥋</span>
+                    <span class="hidden md:inline">Tutor AI</span>
+                </a>
+                <a href="pomodoro.html" class="px-2 sm:px-3.5 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/35 text-rose-300 font-mono text-xs font-bold transition flex items-center gap-1 sm:gap-1.5 shadow-lg active:scale-95 min-h-[38px] sm:min-h-[42px]" title="Pomodoro & Foco">
+                    <span>⏱️</span>
+                    <span class="hidden md:inline">Pomodoro</span>
+                </a>
+                <a href="diary.html" class="px-2 sm:px-3.5 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-pink-500/20 hover:bg-pink-500/30 border border-pink-500/35 text-pink-300 font-mono text-xs font-bold transition flex items-center gap-1 sm:gap-1.5 shadow-lg active:scale-95 min-h-[38px] sm:min-h-[42px]" title="Diário & Livros">
+                    <span>📖</span>
+                    <span class="hidden md:inline">Diário</span>
+                </a>
+                <div id="top-time-mini-pill" class="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs font-mono text-gray-300 hidden xl:flex items-center gap-2">
+                    <span class="text-amber-400">⚡</span>
+                    <span id="top-mini-time-text">00:00:00</span>
+                </div>
+                <button type="button" onclick="toggleBgModal()" class="px-2 sm:px-3.5 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/35 text-purple-200 font-mono text-xs font-bold transition flex items-center gap-1 sm:gap-1.5 shadow-lg active:scale-95 cursor-pointer min-h-[38px] sm:min-h-[42px]" title="Painel de Background FX">
+                    <span>🎨</span>
+                    <span class="hidden sm:inline">Shaders</span>
+                </button>
+                <button type="button" onclick="toggleFullscreen()" class="p-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs font-mono transition cursor-pointer hidden sm:flex items-center justify-center min-h-[42px] min-w-[42px]" title="Tela Cheia (F11)">
+                    ⛶
+                </button>
+            </div>
+        </header>
+
+        <!-- =========================================================
+             2. PANE 1: PURE CALENDAR MODE
+             ========================================================= -->
+        <main id="pane-calendar-mode" class="space-y-4 sm:space-y-6 flex-1 transition-opacity duration-500">
+            
+            <!-- RELÓGIO MONUMENTAL, MODERNO E ELEGANTE (RESTAURADO) -->
+            <div class="liquid-glass-panel rounded-2xl sm:rounded-3xl p-3 sm:p-7 md:p-9 flex flex-col lg:flex-row items-center justify-between gap-3.5 sm:gap-6 relative overflow-hidden group w-full max-w-full">
+                
+                <!-- Lado Esquerdo: Relógio Original Monumental -->
+                <div class="space-y-1 sm:space-y-2 text-center lg:text-left w-full lg:w-auto">
+                    <div class="flex items-center justify-center lg:justify-start gap-2 text-[9px] sm:text-xs font-mono text-gray-400 uppercase tracking-widest">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span>HORÁRIO OFICIAL DE BRASÍLIA • BRT (UTC-3)</span>
+                    </div>
+                    <!-- Display Gigante Original do Relógio -->
+                    <div class="monumental-time-text text-4xl sm:text-7xl md:text-8xl lg:text-9xl font-black font-mono tracking-tight text-white drop-shadow-[0_0_40px_rgba(255,255,255,0.25)] flex items-baseline justify-center lg:justify-start select-none">
+                        <span id="monumental-hours">12</span>
+                        <span class="text-gray-400 opacity-60 animate-pulse mx-0.5 sm:mx-1">:</span>
+                        <span id="monumental-minutes">00</span>
+                        <span class="text-gray-400 opacity-60 animate-pulse mx-0.5 sm:mx-1">:</span>
+                        <span id="monumental-seconds" class="monumental-sec-text text-2xl sm:text-5xl md:text-6xl font-light text-gray-300 ml-1">00</span>
+                    </div>
+                    <!-- Data por Extenso -->
+                    <div id="monumental-full-date" class="text-xs sm:text-base md:text-lg font-mono text-gray-300 font-medium capitalize">
+                        Carregando data...
+                    </div>
+                </div>
+
+                <!-- Lado Direito: Espaço Inteligente com Clima Sete Lagoas MG, Estação, Lua & Badges -->
+                <div class="w-full lg:w-auto grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap items-center justify-center lg:justify-end gap-2 sm:gap-2.5 max-w-full overflow-hidden">
+                    
+                    <!-- Clima Sete Lagoas, MG -->
+                    <div class="col-span-2 sm:col-span-1 lg:col-auto px-3 sm:px-4 py-1.5 sm:py-2.5 rounded-xl sm:rounded-2xl bg-white/5 border border-white/15 flex items-center gap-2 sm:gap-3 backdrop-blur-md shadow-sm min-w-0">
+                        <div class="text-lg sm:text-2xl shrink-0" id="weather-icon">⛅</div>
+                        <div class="font-mono min-w-0 flex-1">
+                            <div class="flex items-center gap-1.5 text-xs truncate">
+                                <span class="font-bold text-white" id="weather-temp">20°C</span>
+                                <span class="text-[10px] text-gray-400" id="weather-apparent">Sensação 20°</span>
+                                <span class="text-[9px] text-sky-300 font-bold bg-sky-500/20 px-1 py-0.5 rounded border border-sky-500/30 shrink-0">MG</span>
+                            </div>
+                            <div class="text-[10px] text-gray-300 flex items-center gap-1.5 mt-0.5 truncate">
+                                <span id="weather-text" class="truncate">Parcialmente Nublado</span>
+                                <span class="text-gray-500">•</span>
+                                <span class="shrink-0">💧 <b id="weather-humidity" class="text-white">75%</b></span>
+                                <span class="text-gray-500">•</span>
+                                <span class="shrink-0 text-amber-300" id="weather-minmax">18° / 29°</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Estação Atual -->
+                    <div class="px-2.5 sm:px-3.5 py-1.5 sm:py-2.5 rounded-xl sm:rounded-2xl bg-white/5 border border-white/15 flex items-center gap-2 sm:gap-2.5 backdrop-blur-md shadow-sm min-w-0">
+                        <div class="text-base sm:text-xl shrink-0" id="season-icon">❄️</div>
+                        <div class="font-mono min-w-0">
+                            <div class="text-[10px] sm:text-xs font-bold text-white truncate" id="season-title">Inverno (Brasil)</div>
+                            <div class="text-[9px] sm:text-[10px] text-gray-400 truncate" id="season-countdown">Primavera em ...</div>
+                        </div>
+                    </div>
+
+                    <!-- Fase Lunar Real -->
+                    <div class="px-2.5 sm:px-3.5 py-1.5 sm:py-2.5 rounded-xl sm:rounded-2xl bg-white/5 border border-white/15 flex items-center gap-2 sm:gap-2.5 backdrop-blur-md shadow-sm min-w-0">
+                        <div class="text-base sm:text-xl shrink-0" id="moon-icon">🌑</div>
+                        <div class="font-mono min-w-0">
+                            <div class="text-[10px] sm:text-xs font-bold text-white truncate" id="moon-phase-name">Lua Nova</div>
+                            <div class="text-[9px] sm:text-[10px] text-gray-400 truncate" id="moon-details">Iluminação: 0%</div>
+                        </div>
+                    </div>
+
+                    <!-- Contador do Ano (Dia X de 365) -->
+                    <div class="px-2.5 sm:px-3.5 py-1.5 sm:py-2.5 rounded-xl sm:rounded-2xl bg-white/5 border border-white/15 flex items-center gap-1.5 sm:gap-2 backdrop-blur-md shadow-sm">
+                        <span class="text-xs sm:text-sm">📅</span>
+                        <span class="text-[10px] sm:text-xs font-mono font-bold text-gray-200" id="day-of-year-badge">Dia 0 de 365</span>
+                    </div>
+
+                    <!-- Semana do Ano -->
+                    <div class="px-2.5 sm:px-3.5 py-1.5 sm:py-2.5 rounded-xl sm:rounded-2xl bg-white/5 border border-white/15 flex items-center gap-1.5 sm:gap-2 backdrop-blur-md shadow-sm">
+                        <span class="text-xs sm:text-sm text-amber-400">⚡</span>
+                        <span class="text-[10px] sm:text-xs font-mono font-bold text-gray-200" id="week-of-year-badge">Semana 0</span>
+                    </div>
+
+                    <!-- Badge Dinâmico de Foco & Produtividade -->
+                    <div class="col-span-2 sm:col-span-1 lg:col-auto px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-gradient-to-r from-purple-500/20 to-indigo-500/20 border border-purple-500/30 flex items-center justify-center gap-2 backdrop-blur-md shadow-sm">
+                        <span class="text-xs">🧘</span>
+                        <span class="text-[10px] sm:text-xs font-mono font-bold text-purple-200 uppercase tracking-wide">Foco & Consistência</span>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- O GRANDE CALENDÁRIO GERAL -->
+            <div class="liquid-glass-panel rounded-2xl sm:rounded-3xl p-2.5 sm:p-6 lg:p-7 space-y-3 sm:space-y-4 w-full max-w-full overflow-hidden box-border">
+
+                <!-- BARRA DE INTEGRAÇÃO GOOGLE AGENDA & RECURSOS -->
+                <div class="flex items-center justify-between flex-wrap gap-2.5 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-white/15 bg-black/40 backdrop-blur-xl">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <span class="text-xl sm:text-2xl">📅</span>
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <h4 class="text-xs sm:text-sm font-bold text-white tracking-tight font-mono">GOOGLE AGENDA</h4>
+                                <span id="google-sync-status-badge" class="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-mono font-bold bg-white/10 text-gray-300 border border-white/15 flex items-center gap-1">
+                                    <span class="w-2 h-2 rounded-full bg-gray-400"></span>
+                                    <span>Google Agenda Offline</span>
+                                </span>
+                            </div>
+                            <p class="text-[10px] font-mono text-gray-400 hidden sm:block">Sincronização bidirecional de eventos, tarefas e rotinas com o Google Calendar</p>
+                        </div>
+                    </div>
+
+                    <!-- Botões de Ação do Google Calendar -->
+                    <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap ml-auto">
+                        <button type="button" onclick="if(window.ControlEngine && typeof window.ControlEngine.openGoogleCalendarConnectModal === 'function'){window.ControlEngine.openGoogleCalendarConnectModal();}else{var m=document.getElementById('control-google-calendar-modal');if(m){m.classList.remove('hidden');m.style.display='flex';m.style.zIndex='99999';}}" class="px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-blue-600/30 hover:bg-blue-600/45 text-blue-200 border border-blue-400/40 font-bold font-mono text-xs transition flex items-center gap-1.5 cursor-pointer active:scale-95 shadow">
+                            <span>🔗</span>
+                            <span class="hidden sm:inline">Conectar Google</span>
+                            <span class="sm:hidden">Conectar</span>
+                        </button>
+                        <button type="button" onclick="window.ControlEngine.syncGoogleCalendar()" class="px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold font-mono text-xs transition flex items-center gap-1.5 cursor-pointer active:scale-95" title="Sincronizar Agora">
+                            <span>🔄</span>
+                            <span class="hidden md:inline">Sincronizar</span>
+                        </button>
+                        <button type="button" onclick="window.ControlEngine.openQuickCalendarEventModal()" class="px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold font-mono text-xs transition flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-lg">
+                            <span>➕</span>
+                            <span class="hidden sm:inline">Novo Evento</span>
+                            <span class="sm:hidden">Novo</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Barra de Ferramentas Superior do Calendário -->
+                <div class="flex flex-col gap-2 sm:gap-3 pb-2.5 sm:pb-3 border-b border-white/10 w-full max-w-full overflow-hidden">
+                    
+                    <!-- Linha 1: Navegação Mês & Ações Rápidas (Zero overflow) -->
+                    <div class="flex items-center justify-between flex-nowrap gap-1.5 sm:gap-2 w-full">
+                        <div class="flex items-center gap-1 sm:gap-2 min-w-0">
+                            <button type="button" onclick="window.ControlEngine.navigateControlCalendar(-1)" class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white font-mono text-base flex items-center justify-center cursor-pointer transition active:scale-95 shadow shrink-0">←</button>
+                            <span id="control-calendar-current-month" class="text-xs sm:text-lg font-bold text-white font-mono uppercase tracking-wider truncate">
+                                Mês Atual
+                            </span>
+                            <button type="button" onclick="window.ControlEngine.navigateControlCalendar(1)" class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white font-mono text-base flex items-center justify-center cursor-pointer transition active:scale-95 shadow shrink-0">→</button>
+                            <button type="button" onclick="window.ControlEngine.navigateControlCalendarToToday()" class="px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white text-[11px] sm:text-xs font-mono transition cursor-pointer shrink-0">Hoje</button>
+                        </div>
+
+                        <div class="flex items-center gap-1 sm:gap-1.5 shrink-0 ml-auto">
+                            <button type="button" onclick="toggleBgModal()" class="w-8 h-8 sm:w-auto px-0 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/35 text-xs font-mono font-bold transition flex items-center justify-center gap-1 cursor-pointer shrink-0 shadow" title="Trocar Background FX">
+                                <span>🎨</span> <span class="hidden md:inline">Background FX</span>
+                            </button>
+                            <button type="button" onclick="window.ControlEngine.openReminderConfigModal()" class="w-8 h-8 sm:w-auto px-0 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/35 text-xs font-mono font-bold transition flex items-center justify-center gap-1 cursor-pointer shrink-0 shadow" title="Gerenciar Modelos & Alarmes">
+                                <span>⏰</span> <span class="hidden md:inline">Alarmes</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Linha 2: Modos de Visualização e Filtros (com rolagem suave touch) -->
+                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-2.5 w-full">
+                        <!-- Modos de Visualização -->
+                        <div class="flex items-center justify-between sm:justify-start gap-1 bg-black/40 p-1 rounded-xl border border-white/15 text-xs font-mono shrink-0 overflow-x-auto no-scrollbar">
+                            <button type="button" onclick="window.ControlEngine.setCalendarViewMode('1day')" id="cal-view-1day" class="flex-1 sm:flex-none text-center px-2.5 py-1 rounded-lg text-gray-300 hover:text-white transition cursor-pointer whitespace-nowrap">1 Dia</button>
+                            <button type="button" onclick="window.ControlEngine.setCalendarViewMode('3days')" id="cal-view-3days" class="flex-1 sm:flex-none text-center px-2.5 py-1 rounded-lg text-gray-300 hover:text-white transition cursor-pointer whitespace-nowrap">3 Dias</button>
+                            <button type="button" onclick="window.ControlEngine.setCalendarViewMode('5days')" id="cal-view-5days" class="flex-1 sm:flex-none text-center px-2.5 py-1 rounded-lg text-gray-300 hover:text-white transition cursor-pointer whitespace-nowrap">5 Dias</button>
+                            <button type="button" onclick="window.ControlEngine.setCalendarViewMode('7days')" id="cal-view-7days" class="flex-1 sm:flex-none text-center px-2.5 py-1 rounded-lg text-gray-300 hover:text-white transition cursor-pointer whitespace-nowrap">7 Dias</button>
+                            <button type="button" onclick="window.ControlEngine.setCalendarViewMode('month')" id="cal-view-month" class="flex-1 sm:flex-none text-center px-2.5 py-1 rounded-lg bg-white text-black font-bold transition cursor-pointer whitespace-nowrap">1 Mês</button>
+                        </div>
+
+                        <!-- Filtros de Tipos em trilho horizontal touch no-scrollbar -->
+                        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 max-w-full text-[11px] font-mono shrink-0">
+                            <span class="text-gray-400 shrink-0 text-[10px]">Filtrar:</span>
+                            <button onclick="window.ControlEngine.setCalendarFilter('all')" id="cal-filter-all" class="px-2.5 py-1 rounded-lg bg-white text-black font-bold cursor-pointer transition shadow-md shrink-0 whitespace-nowrap">Todos</button>
+                            <button onclick="window.ControlEngine.setCalendarFilter('google')" id="cal-filter-google" class="px-2.5 py-1 rounded-lg bg-blue-500/20 text-blue-300 border border-blue-500/40 cursor-pointer transition shrink-0 whitespace-nowrap">🔵 Google</button>
+                            <button onclick="window.ControlEngine.setCalendarFilter('reminders')" id="cal-filter-reminders" class="px-2.5 py-1 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/40 cursor-pointer transition shrink-0 whitespace-nowrap">🟣 Lembretes</button>
+                            <button onclick="window.ControlEngine.setCalendarFilter('todos')" id="cal-filter-todos" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 cursor-pointer transition shrink-0 whitespace-nowrap">🟢 Tarefas</button>
+                            <button onclick="window.ControlEngine.setCalendarFilter('studies')" id="cal-filter-studies" class="px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/40 cursor-pointer transition shrink-0 whitespace-nowrap">🌐 Estudos</button>
+                            <button onclick="window.ControlEngine.setCalendarFilter('habits')" id="cal-filter-habits" class="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 cursor-pointer transition shrink-0 whitespace-nowrap">⚡ Hábitos</button>
+                            <button onclick="window.ControlEngine.setCalendarFilter('diary')" id="cal-filter-diary" class="px-2.5 py-1 rounded-lg bg-pink-500/20 text-pink-300 border border-pink-500/40 cursor-pointer transition shrink-0 whitespace-nowrap">📖 Diário</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cabeçalho Dinâmico de Dias da Semana -->
+                <div id="control-calendar-weekdays-header" class="grid grid-cols-7 gap-1 text-center font-mono text-[10px] sm:text-xs font-bold text-gray-400 uppercase py-1">
+                    <div class="text-rose-400">Dom</div>
+                    <div>Seg</div>
+                    <div>Ter</div>
+                    <div>Qua</div>
+                    <div>Qui</div>
+                    <div>Sex</div>
+                    <div class="text-sky-400">Sáb</div>
+                </div>
+
+                <!-- Grade de Células dos Dias (Adaptável ao Modo de Visualização) -->
+                <div id="control-calendar-grid" class="grid grid-cols-7 gap-1.5 sm:gap-2">
+                    <!-- Injetado dinamicamente via ControlEngine JS -->
+                </div>
+
+                <!-- A BARRA DE SUPORTE (VISÃO 360° COMPLETA) -->
+                <div id="control-calendar-day-details" class="p-4 sm:p-5 rounded-2xl bg-white/[0.04] border border-white/15 space-y-3 mt-4">
+                    <!-- Injetado dinamicamente via ControlEngine JS -->
+                </div>
+
+            </div>
+
+        </main>
+
+        <!-- FOOTER DISCRETO -->
+        <footer class="pt-6 border-t border-white/10 flex items-center justify-between text-xs font-mono text-gray-400 flex-wrap gap-2 shrink-0">
+            <div>M.C.P PERSONAL OS • PURE CALENDAR</div>
+            <div class="flex items-center gap-3">
+                <a href="index.html" class="hover:text-white transition">Home</a>
+                <span>•</span>
+                <a href="chat.html" class="text-sky-300 hover:text-white transition">Tutor AI</a>
+                <span>•</span>
+                <a href="pomodoro.html" class="hover:text-white transition">Pomodoro</a>
+                <span>•</span>
+                <a href="diary.html" class="hover:text-white transition">Diário</a>
+                <span>•</span>
+                <a href="admin.html" class="hover:text-white transition">Admin</a>
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- Super Glassmorphic Elegant Background Control Modal -->
+    <div id="bg-modal" onclick="handleModalClick(event)" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-2 sm:p-6 hidden transition-all duration-300">
+        <div class="max-w-4xl w-full h-[90dvh] sm:h-auto sm:max-h-[85vh] rounded-2xl sm:rounded-3xl border border-white/20 shadow-[0_25px_70px_rgba(0,0,0,0.55),inset_0_1px_2px_rgba(255,255,255,0.28)] relative my-auto flex flex-col overflow-hidden" style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.07) 0%, rgba(14, 13, 22, 0.88) 100%); backdrop-filter: blur(28px) saturate(190%); -webkit-backdrop-filter: blur(28px) saturate(190%);" onclick="event.stopPropagation()">
+            
+            <!-- Modal Header (Sticky Top) -->
+            <div class="px-3.5 sm:px-6 py-2.5 sm:py-3.5 border-b border-white/10 bg-white/[0.05] backdrop-blur-md flex flex-col gap-2.5 shrink-0">
+                <!-- Top Row: Title + Close Button -->
+                <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2 min-w-0">
+                        <span class="w-2.5 h-2.5 rounded-full bg-purple-400 shadow-[0_0_10px_#c084fc] animate-pulse shrink-0"></span>
+                        <h3 class="text-sm sm:text-base font-bold tracking-tight text-white font-mono flex items-center gap-1.5 truncate">
+                            <span>Background FX</span>
+                            <span class="px-2 py-0.5 rounded-full text-[9px] font-mono font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30 shrink-0">31 Shaders</span>
+                        </h3>
+                    </div>
+                    
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        <button id="modal-rotative-btn" onclick="toggleRotativeMode()" class="px-2.5 py-1 rounded-xl text-[11px] font-mono font-bold transition flex items-center gap-1 cursor-pointer border bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30 active:scale-95">
+                            <span id="rotative-mode-badge">Rotativo 🟢</span>
+                        </button>
+                        <button onclick="stopShader()" class="px-2.5 py-1 rounded-xl text-[11px] font-mono bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30 transition cursor-pointer active:scale-95" title="Desativar Background">Pausar</button>
+                        <button onclick="toggleBgModal()" class="w-8 h-8 flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 text-white font-mono text-sm transition cursor-pointer active:scale-90" title="Fechar">✕</button>
+                    </div>
+                </div>
+
+                <!-- Second Row: Fast Search Bar + Speed Slider -->
+                <div class="flex items-center gap-2 w-full">
+                    <div class="relative flex-1 min-w-0">
+                        <input type="text" id="shader-search-input" oninput="filterShaders(this.value)" placeholder="Buscar shader (radar, silk, beams)..." class="w-full bg-white/10 hover:bg-white/15 focus:bg-white/20 border border-white/20 focus:border-purple-400 rounded-xl pl-3 pr-7 py-1.5 text-xs text-white placeholder-gray-400 focus:outline-none transition font-mono" />
+                        <button type="button" onclick="const s=document.getElementById('shader-search-input');if(s){s.value='';filterShaders('');s.focus();}" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xs font-mono">✕</button>
+                    </div>
+                    <div class="flex items-center gap-1.5 shrink-0 bg-white/5 border border-white/10 px-2 py-1 rounded-xl text-[10px] font-mono text-gray-300">
+                        <span class="text-gray-400 hidden sm:inline">Velocidade:</span>
+                        <input type="range" id="bg-speed-slider" min="2" max="30" value="5" oninput="handleSpeedSliderChange(this.value)" class="w-16 sm:w-24 h-1 bg-white/20 rounded appearance-none cursor-pointer accent-emerald-400" />
+                        <span id="slider-speed-val" class="text-white font-bold">5s</span>
+                    </div>
+                </div>
+
+                <!-- Third Row: Category Pills (Horizontal Scroll Touch) -->
+                <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 -mx-1 px-1">
+                    <button type="button" onclick="filterShaderCategory('all', this)" class="shader-filter-pill active-pill shrink-0">Todos (31)</button>
+                    <button type="button" onclick="filterShaderCategory('3d', this)" class="shader-filter-pill shrink-0">3D & Túnel</button>
+                    <button type="button" onclick="filterShaderCategory('waves', this)" class="shader-filter-pill shrink-0">Fluidos & Ondas</button>
+                    <button type="button" onclick="filterShaderCategory('cyber', this)" class="shader-filter-pill shrink-0">Cyber & Laser</button>
+                    <button type="button" onclick="filterShaderCategory('cinematic', this)" class="shader-filter-pill shrink-0">Cinemático</button>
+                </div>
+            </div>
+
+            <!-- Shader Options Full Grid -->
+            <div class="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6 overscroll-contain pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2 sm:gap-2.5" id="bg-shader-options">
+                    <button data-shader="softaurora" data-category="waves" onclick="selectShader('softaurora')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">Canvas</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Soft Aurora</div>
+                    </button>
+                    <button data-shader="plasmawave" data-category="waves" onclick="selectShader('plasmawave')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">WebGL</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Plasma Wave</div>
+                    </button>
+                    <button data-shader="strands" data-category="waves" onclick="selectShader('strands')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">Raymarch</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Strands</div>
+                    </button>
+                    <button data-shader="siderays" data-category="cinematic" onclick="selectShader('siderays')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">Volumetric</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Side Rays</div>
+                    </button>
+                    <button data-shader="beams" data-category="3d" onclick="selectShader('beams')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">Three.js</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Beams</div>
+                    </button>
+                    <button data-shader="floatinglines" data-category="3d waves" onclick="selectShader('floatinglines')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">Three.js</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Floating Lines</div>
+                    </button>
+                    <button data-shader="silk" data-category="waves" onclick="selectShader('silk')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">Three.js</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Silk</div>
+                    </button>
+                    <button data-shader="radar" data-category="cyber" onclick="selectShader('radar')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">OGL</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Radar</div>
+                    </button>
+                    <button data-shader="ripplegrid" data-category="waves cyber" onclick="selectShader('ripplegrid')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">OGL</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Ripple Grid</div>
+                    </button>
+                    <button data-shader="pixelblast" data-category="cyber" onclick="selectShader('pixelblast')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">Three.js</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Pixel Blast</div>
+                    </button>
+                    <button data-shader="magicrings" data-category="3d cyber" onclick="selectShader('magicrings')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">Three.js</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Magic Rings</div>
+                    </button>
+                    <button data-shader="gridscan" data-category="3d cyber" onclick="selectShader('gridscan')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">Three.js</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Grid Scan</div>
+                    </button>
+                    <button data-shader="liquidchrome" data-category="waves cyber" onclick="selectShader('liquidchrome')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">OGL</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Liquid Chrome</div>
+                    </button>
+                    <button data-shader="linewaves" data-category="waves cyber" onclick="selectShader('linewaves')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">OGL</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Line Waves</div>
+                    </button>
+                    <button data-shader="ferrofluid" data-category="waves" onclick="selectShader('ferrofluid')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">Physics</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Ferrofluid</div>
+                    </button>
+                    <button data-shader="dither" data-category="cyber" onclick="selectShader('dither')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">Retro GL</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Dither</div>
+                    </button>
+                    <button data-shader="darkveil" data-category="cyber" onclick="selectShader('darkveil')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">Raymarch</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Dark Veil</div>
+                    </button>
+                    <button data-shader="webthreads" data-category="cyber" onclick="selectShader('webthreads')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">WebGL</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Web Threads</div>
+                    </button>
+                    <button data-shader="topography" data-category="cinematic" onclick="selectShader('topography')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">Contour</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Topography</div>
+                    </button>
+                    <button data-shader="balatro" data-category="cyber" onclick="selectShader('balatro')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">CRT Shader</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Balatro</div>
+                    </button>
+                    <button data-shader="faultyterminal" data-category="cyber" onclick="selectShader('faultyterminal')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">Glitch</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Faulty Terminal</div>
+                    </button>
+                    <button data-shader="morphslider" data-category="cinematic" onclick="selectShader('morphslider')" class="shader-btn border-purple-500/40">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]"></span><span class="text-[9px] font-mono text-purple-300">Cinemático</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-purple-200 mt-1">Morph Slider</div>
+                    </button>
+                    <button data-shader="antigravity" data-category="3d" onclick="selectShader('antigravity')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">Particles</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Antigravity</div>
+                    </button>
+                    <button data-shader="aurora" data-category="waves" onclick="selectShader('aurora')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">Borealis</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Aurora</div>
+                    </button>
+                    <button data-shader="letterglitch" data-category="cyber" onclick="selectShader('letterglitch')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">ASCII Matrix</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Letter Glitch</div>
+                    </button>
+                    <button data-shader="plasma" data-category="waves" onclick="selectShader('plasma')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">Sine Wave</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Plasma</div>
+                    </button>
+                    <button data-shader="hyperspeed" data-category="3d cyber" onclick="selectShader('hyperspeed')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">Warp Speed</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Hyperspeed</div>
+                    </button>
+                    <button data-shader="prism" data-category="cinematic" onclick="selectShader('prism')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">Refraction</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Prism</div>
+                    </button>
+                    <button data-shader="prismaticburst" data-category="cinematic 3d" onclick="selectShader('prismaticburst')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">Burst GL</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Prismatic Burst</div>
+                    </button>
+                    <button data-shader="lightning" data-category="cyber" onclick="selectShader('lightning')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">Arc Plasma</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Lightning</div>
+                    </button>
+                    <button data-shader="evileye" data-category="3d" onclick="selectShader('evileye')" class="shader-btn">
+                        <div class="flex items-center justify-between w-full"><span class="w-2.5 h-2.5 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.8)]"></span><span class="text-[9px] font-mono text-gray-400">ShaderToy</span></div>
+                        <div class="font-bold text-xs sm:text-sm text-white mt-1">Evil Eye</div>
+                    </button>
+                </div>
+                <!-- Empty search state -->
+                <div id="shader-empty-search" class="hidden py-16 text-center text-gray-400 font-mono text-xs">
+                    <span class="w-8 h-8 rounded-full border border-white/20 flex items-center justify-center mx-auto mb-2 text-gray-400 font-mono text-sm">Ø</span>
+                    Nenhum shader encontrado para o termo pesquisado.
+                </div>
+            </div>
+
+        </div>
+    </div>
+    <!-- =========================================================
+         4. MODAIS DO CALENDÁRIO
+         ========================================================= -->
+
+    <!-- QUICK EVENT MODAL -->
+    <div id="control-quick-calendar-event-modal" class="ultra-liquid-glass-backdrop fixed inset-0 z-[120] flex items-center justify-center hidden p-3 sm:p-6 transition-opacity duration-300 overflow-y-auto" onclick="if(event.target===this) window.ControlEngine.closeQuickCalendarEventModal()">
+        <div class="ultra-liquid-glass-modal p-5 sm:p-7 rounded-2xl sm:rounded-3xl max-w-lg w-full max-h-[92dvh] flex flex-col relative overflow-hidden m-auto" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between pb-3.5 border-b border-white/15 shrink-0">
+                <h3 class="text-base sm:text-lg font-bold text-white font-mono">Adicionar Compromisso / Evento</h3>
+                <button type="button" onclick="window.ControlEngine.closeQuickCalendarEventModal()" class="text-gray-400 hover:text-white font-mono text-sm">✕</button>
+            </div>
+            <form onsubmit="window.ControlEngine.handleSaveQuickCalendarEvent(event)" class="space-y-4 pt-4">
+                <input type="text" id="quick-cal-title" required placeholder="Título do evento..." class="w-full input-glass rounded-xl p-3 text-xs font-mono" />
+                <div class="grid grid-cols-2 gap-3">
+                    <input type="date" id="quick-cal-date" required class="w-full input-glass rounded-xl p-3 text-xs font-mono" />
+                    <input type="time" id="quick-cal-time" value="09:00" class="w-full input-glass rounded-xl p-3 text-xs font-mono" />
+                </div>
+                <textarea id="quick-cal-notes" rows="2" placeholder="Notas ou observações..." class="w-full input-glass rounded-xl p-3 text-xs font-mono"></textarea>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="window.ControlEngine.closeQuickCalendarEventModal()" class="px-4 py-2 rounded-xl bg-white/10 text-xs font-mono">Cancelar</button>
+                    <button type="submit" class="px-5 py-2 rounded-xl bg-white text-black font-mono font-bold text-xs">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 4.1 CONTROL: GOOGLE CALENDAR CONNECTION & SYNC MODAL -->
+    <div id="control-google-calendar-modal" class="ultra-liquid-glass-backdrop fixed inset-0 z-[120] flex items-center justify-center hidden p-3 sm:p-6 transition-opacity duration-300 overflow-y-auto" onclick="if(event.target===this) window.ControlEngine.closeGoogleCalendarConnectModal()">
+        <div class="ultra-liquid-glass-modal p-5 sm:p-7 rounded-2xl sm:rounded-3xl max-w-xl w-full max-h-[92dvh] flex flex-col relative overflow-hidden m-auto" onclick="event.stopPropagation()">
+            
+            <!-- Header do Modal -->
+            <div class="flex items-center justify-between pb-3.5 border-b border-white/15 shrink-0 flex-wrap gap-2">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-2xl">📅</span>
+                    <div>
+                        <h3 class="text-base sm:text-lg font-bold text-white tracking-tight font-mono">Conectar Google Agenda</h3>
+                        <p class="text-[10px] font-mono text-gray-300">Integração oficial OAuth 2.0 e Feed iCal de Alta Performance</p>
+                    </div>
+                </div>
+                <button onclick="window.ControlEngine.closeGoogleCalendarConnectModal()" class="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white text-base font-mono flex items-center justify-center cursor-pointer transition">✕</button>
+            </div>
+
+            <form onsubmit="window.ControlEngine.saveGoogleCalendarSettings(event)" class="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
+                
+                <!-- Card Principal de Autenticação OAuth 2.0 Direta -->
+                <div class="p-4 rounded-2xl bg-gradient-to-br from-blue-900/30 via-sky-950/20 to-purple-900/20 border border-blue-500/30 space-y-3">
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                        <div>
+                            <span class="text-[10px] font-mono text-blue-300 uppercase block font-bold tracking-wider">Conexão Oficial Google Cloud</span>
+                            <div id="modal-gcal-status-text" class="text-xs font-mono font-bold text-white flex items-center gap-1.5 pt-0.5">
+                                <span class="w-2.5 h-2.5 rounded-full bg-gray-400"></span>
+                                <span>Não Conectado</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <button type="button" onclick="window.ControlEngine.testOrAuthGoogle()" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-500 hover:to-sky-500 text-white shadow-lg text-xs font-mono font-bold cursor-pointer transition active:scale-95 flex items-center gap-2">
+                                <svg class="w-4 h-4" viewBox="0 0 24 24"><path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/><path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/></svg>
+                                <span>Conectar Google</span>
+                            </button>
+                            <button type="button" onclick="window.ControlEngine.pullGCalSettingsFromCloud()" class="px-3 py-2 rounded-xl bg-purple-500/25 hover:bg-purple-500/40 text-purple-200 border border-purple-500/40 text-xs font-mono font-bold cursor-pointer transition flex items-center gap-1" title="Sincronizar configurações salvas na nuvem">
+                                <span>☁️</span>
+                                <span>Puxar da Nuvem</span>
+                            </button>
+                            <button type="button" onclick="window.ControlEngine.disconnectGoogleCalendar()" class="px-2.5 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-mono cursor-pointer transition" title="Desconectar">
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+                    <p class="text-[10px] font-mono text-blue-200/80">No celular, o botão abre o navegador seguro (Chrome/Samsung) para login oficial sem erro de WebView. Ao concluir, o retorno para o app é automático via App Link.</p>
+                </div>
+
+                <!-- Método 1: URL Secreta iCal / Webcal do Google Calendar -->
+                <div class="p-4 rounded-2xl bg-white/[0.04] border border-white/10 space-y-2.5">
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                        <label class="block text-xs font-mono font-bold text-emerald-300 uppercase">
+                            <span>Método Recomendado: Feed iCal Privado (Sem Expiração)</span>
+                        </label>
+                        <span class="text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">100% Estável no APK</span>
+                    </div>
+                    <p class="text-[10px] font-mono text-gray-300">Cole o "Endereço secreto em formato iCal" das configurações da sua Google Agenda:</p>
+                    <div class="flex items-center gap-2">
+                        <input type="url" id="gcal-ical-url" placeholder="https://calendar.google.com/calendar/ical/.../basic.ics" class="flex-1 input-glass rounded-xl px-3.5 py-2 text-xs font-mono text-white min-h-[40px]" />
+                        <button type="submit" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-mono font-bold text-xs cursor-pointer transition shrink-0 shadow">
+                            Salvar & Sync
+                        </button>
+                    </div>
+                    <span class="text-[9px] font-mono text-gray-400 block">💡 No Google Agenda Web: Configurações da sua agenda ➔ Integrar agenda ➔ Endereço secreto em formato iCal.</span>
+                </div>
+
+                <!-- Método 2: Token de Acesso Manual / Bearer Token -->
+                <div class="p-4 rounded-2xl bg-white/[0.04] border border-white/10 space-y-2">
+                    <label class="block text-xs font-mono font-bold text-amber-300 uppercase">Método 2: Access Token Direto (Opcional / Mobile)</label>
+                    <p class="text-[10px] font-mono text-gray-300">Cole o token de acesso Bearer ou clique em "Puxar da Nuvem" para obter o token ativo:</p>
+                    <input type="text" id="gcal-access-token" placeholder="ya29.a0Ac..." class="w-full input-glass rounded-xl px-3.5 py-2 text-xs font-mono text-white min-h-[40px]" />
+                </div>
+
+                <!-- Método 3: Credenciais Google Cloud & Configuração Android -->
+                <div class="p-4 rounded-2xl bg-white/[0.04] border border-white/10 space-y-3">
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                        <label class="block text-xs font-mono font-bold text-sky-300 uppercase">Credenciais Google Cloud & OAuth</label>
+                        <button type="button" onclick="window.ControlEngine.copyAndroidGoogleCloudInfo()" class="px-2.5 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 text-[10px] font-mono cursor-pointer transition flex items-center gap-1">
+                            <span>📋</span> Copiar Dados do APK (SHA-1)
+                        </button>
+                    </div>
+
+                    <!-- Presets Rápidos com 1 Clique -->
+                    <div class="space-y-1">
+                        <span class="text-[9px] font-mono text-gray-400 block uppercase">Alternar Rápido de Credenciais (Presets):</span>
+                        <div class="flex flex-wrap gap-1.5">
+                            <button type="button" onclick="window.ControlEngine.setGCalQuickConfig('api-agenda')" class="px-2.5 py-1 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-200 border border-blue-500/30 text-[10px] font-mono cursor-pointer transition">
+                                ☁️ Cloud Oficial (api-agenda)
+                            </button>
+                            <button type="button" onclick="window.ControlEngine.setGCalQuickConfig('vercel-web')" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 border border-emerald-500/30 text-[10px] font-mono cursor-pointer transition">
+                                🌐 Vercel Web
+                            </button>
+                            <button type="button" onclick="window.ControlEngine.setGCalQuickConfig('api-agenda-local')" class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/30 text-[10px] font-mono cursor-pointer transition">
+                                💻 Localhost
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <div>
+                            <label class="block text-[9px] font-mono text-gray-300 uppercase mb-1">Google OAuth Client ID</label>
+                            <input type="text" id="gcal-client-id" value="demo-client-id.apps.googleusercontent.com" class="w-full input-glass rounded-xl px-3 py-1.5 text-xs font-mono text-white" />
+                        </div>
+                        <div>
+                            <label class="block text-[9px] font-mono text-gray-300 uppercase mb-1">URI de Redirecionamento (Redirect URI)</label>
+                            <input type="text" id="gcal-redirect-uri" value="https://m-c-p-personal-os.vercel.app/oauth.html" class="w-full input-glass rounded-xl px-3 py-1.5 text-xs font-mono text-white" />
+                        </div>
+                    </div>
+
+                    <!-- Dados do Certificado do APK para Autorização no Google Cloud -->
+                    <div class="p-2.5 rounded-xl bg-black/40 border border-white/10 text-[9px] font-mono text-gray-300 space-y-1">
+                        <div class="text-sky-300 font-bold flex items-center justify-between">
+                            <span>📱 ASSINATURA OFICIAL DO APK ANDROID:</span>
+                            <span class="text-gray-400">Release Keystore</span>
+                        </div>
+                        <div class="truncate text-gray-300"><span class="text-gray-400">Package:</span> com.mateuscelestino.personalos</div>
+                        <div class="truncate text-gray-300"><span class="text-gray-400">SHA-1:</span> F3:4F:B6:A5:E9:92:C2:C6:F2:F3:07:EC:14:93:02:4B:A2:15:38:3D</div>
+                        <p class="text-[8.5px] text-gray-400 pt-0.5 leading-tight">No Google Cloud Console, para autorizar login nativo ou Web, registre este SHA-1 em "Cliente Android" ou adicione a Redirect URI acima em "Cliente Web".</p>
+                    </div>
+                </div>
+
+                <!-- Opções de Sincronização Automática -->
+                <div class="p-3.5 rounded-2xl bg-white/[0.04] border border-white/10 space-y-2">
+                    <label class="flex items-center justify-between cursor-pointer">
+                        <span class="text-xs font-mono text-gray-200">🔄 Sincronizar automaticamente ao abrir e a cada 15 minutos</span>
+                        <input type="checkbox" id="gcal-auto-sync" checked class="w-4 h-4 rounded accent-blue-500 cursor-pointer">
+                    </label>
+                </div>
+
+                <div class="pt-3 border-t border-white/15 flex justify-between items-center gap-2 shrink-0 flex-wrap">
+                    <button type="button" onclick="window.ControlEngine.syncGoogleCalendar()" class="px-3.5 py-2 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 font-mono text-xs font-bold cursor-pointer transition">
+                        🔄 Sincronizar Agora
+                    </button>
+                    <div class="flex items-center gap-2 ml-auto">
+                        <button type="button" onclick="window.ControlEngine.closeGoogleCalendarConnectModal()" class="px-4 py-2 rounded-xl bg-white/10 text-gray-200 font-mono text-xs cursor-pointer">
+                            Fechar
+                        </button>
+                        <button type="submit" class="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-400 hover:to-indigo-500 text-white font-mono font-bold text-xs uppercase tracking-wider rounded-xl transition shadow cursor-pointer">
+                            💾 Salvar Integração
+                        </button>
+                    </div>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+
+    <!-- SCRIPT DO CALENDÁRIO & TIME OS ENGINE -->
+    <script>
+        
+        // =========================================================
+        // MOTOR DE TEMPO, ASTRO E CLIMA (SETE LAGOAS MG)
+        // =========================================================
+        
+        // 1. Relógio Monumental de Vanguarda
+        function updateMonumentalClock() {
+            if (document.hidden) return;
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+
+            const hEl = document.getElementById('monumental-hours');
+            const mEl = document.getElementById('monumental-minutes');
+            const sEl = document.getElementById('monumental-seconds');
+            const topMiniEl = document.getElementById('top-mini-time-text');
+
+            if (hEl) hEl.innerText = hours;
+            if (mEl) mEl.innerText = minutes;
+            if (sEl) sEl.innerText = seconds;
+            if (topMiniEl) topMiniEl.innerText = `${hours}:${minutes}:${seconds}`;
+
+            // Data por extenso em Português
+            const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            const fullDateStr = now.toLocaleDateString('pt-BR', dateOptions);
+            const dateEl = document.getElementById('monumental-full-date');
+            if (dateEl) dateEl.innerText = fullDateStr.charAt(0).toUpperCase() + fullDateStr.slice(1);
+
+            // Dia do Ano
+            const start = new Date(now.getFullYear(), 0, 0);
+            const diff = (now - start) + ((start.getTimezoneOffset() - now.getTimezoneOffset()) * 60 * 1000);
+            const oneDay = 1000 * 60 * 60 * 24;
+            const dayOfYear = Math.floor(diff / oneDay);
+            const dayEl = document.getElementById('monumental-day-of-year');
+            if (dayEl) dayEl.innerText = `Dia ${dayOfYear} de 365`;
+
+            // Semana do Ano
+            const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+            const dayNum = d.getUTCDay() || 7;
+            d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+            const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+            const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+            const weekEl = document.getElementById('monumental-week-number');
+            if (weekEl) weekEl.innerText = `Semana ${weekNo}`;
+        }
+
+        // 2. Estação do Ano (Hemisfério Sul / Brasil)
+        function updateSouthernSeason() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const autumnStart = new Date(year, 2, 20); // 20 Mar
+            const winterStart = new Date(year, 5, 21);  // 21 Jun
+            const springStart = new Date(year, 8, 22);  // 22 Sep
+            const summerStart = new Date(year, 11, 21); // 21 Dec
+
+            let season = '', icon = '', nextSeason = '', nextSeasonDate = null;
+            if (now >= summerStart || now < autumnStart) {
+                season = 'Verão'; icon = '☀️'; nextSeason = 'Outono'; nextSeasonDate = now >= summerStart ? new Date(year + 1, 2, 20) : autumnStart;
+            } else if (now >= autumnStart && now < winterStart) {
+                season = 'Outono'; icon = '🍂'; nextSeason = 'Inverno'; nextSeasonDate = winterStart;
+            } else if (now >= winterStart && now < springStart) {
+                season = 'Inverno'; icon = '❄️'; nextSeason = 'Primavera'; nextSeasonDate = springStart;
+            } else {
+                season = 'Primavera'; icon = '🌸'; nextSeason = 'Verão'; nextSeasonDate = summerStart;
+            }
+
+            const diffDays = Math.max(1, Math.ceil((nextSeasonDate - now) / (1000 * 60 * 60 * 24)));
+            const nextDayStr = `${String(nextSeasonDate.getDate()).padStart(2, '0')}/${String(nextSeasonDate.getMonth() + 1).padStart(2, '0')}`;
+
+            const sText = document.getElementById('season-text');
+            const sIcon = document.getElementById('season-icon');
+            const sCount = document.getElementById('season-countdown');
+
+            if (sText) sText.innerText = season;
+            if (sIcon) sIcon.innerText = icon;
+            if (sCount) sCount.innerText = `${nextSeason === 'Primavera' ? '🌸' : nextSeason === 'Verão' ? '☀️' : nextSeason === 'Outono' ? '🍂' : '❄️'} ${nextSeason} em ${diffDays} dias (${nextDayStr})`;
+        }
+
+        // 3. Fase da Lua Precisa
+        function updateMoonPhase() {
+            const now = new Date();
+            const knownNewMoon = new Date('2024-01-11T11:57:00Z').getTime();
+            const cycle = 29.53058770576 * 86400000;
+            const diff = (now.getTime() - knownNewMoon) % cycle;
+            const phaseDays = (diff < 0 ? diff + cycle : diff) / 86400000;
+            const phasePct = phaseDays / 29.53058770576;
+            const illumination = Math.round((1 - Math.cos(phasePct * 2 * Math.PI)) / 2 * 100);
+
+            let name = 'Lua Nova', icon = '🌑';
+            if (phaseDays < 1.84) { name = 'Lua Nova'; icon = '🌑'; }
+            else if (phaseDays < 5.53) { name = 'Crescente Côncava'; icon = '🌒'; }
+            else if (phaseDays < 9.23) { name = 'Quarto Crescente'; icon = '🌓'; }
+            else if (phaseDays < 12.92) { name = 'Crescente Gibosa'; icon = '🌔'; }
+            else if (phaseDays < 16.61) { name = 'Lua Cheia'; icon = '🌕'; }
+            else if (phaseDays < 20.30) { name = 'Minguante Gibosa'; icon = '🌖'; }
+            else if (phaseDays < 23.99) { name = 'Quarto Minguante'; icon = '🌗'; }
+            else if (phaseDays < 27.69) { name = 'Minguante Côncava'; icon = '🌘'; }
+            else { name = 'Lua Nova'; icon = '🌑'; }
+
+            const mText = document.getElementById('moon-phase-text');
+            const mIcon = document.getElementById('moon-phase-icon');
+            const mIllum = document.getElementById('moon-illumination');
+            const mCycle = document.getElementById('moon-cycle-day');
+
+            if (mText) mText.innerText = name;
+            if (mIcon) mIcon.innerText = icon;
+            if (mIllum) mIllum.innerText = `${illumination}%`;
+            if (mCycle) mCycle.innerText = `Dia ${Math.round(phaseDays)} do ciclo`;
+        }
+
+        // 4. Clima em Tempo Real — Sete Lagoas, MG
+        async function fetchSeteLagoasWeather() {
+            const cacheKey = 'mcp_weather_sete_lagoas';
+            const cacheTimeKey = 'mcp_weather_sete_lagoas_time';
+            const cachedData = localStorage.getItem(cacheKey);
+            const cachedTime = localStorage.getItem(cacheTimeKey);
+
+            const WMO_MAP = {
+                0: { desc: 'Céu Limpo', icon: '☀️' },
+                1: { desc: 'Predom. Limpo', icon: '🌤️' },
+                2: { desc: 'Parc. Nublado', icon: '⛅' },
+                3: { desc: 'Encoberto', icon: '☁️' },
+                45: { desc: 'Nevoeiro', icon: '🌫️' },
+                48: { desc: 'Nevoeiro', icon: '🌫️' },
+                51: { desc: 'Chuvisco Leve', icon: '🌦️' },
+                53: { desc: 'Chuvisco', icon: '🌦️' },
+                55: { desc: 'Chuvisco Denso', icon: '🌧️' },
+                61: { desc: 'Chuva Leve', icon: '🌧️' },
+                63: { desc: 'Chuva', icon: '🌧️' },
+                65: { desc: 'Chuva Forte', icon: '⛈️' },
+                80: { desc: 'Pancadas de Chuva', icon: '🌦️' },
+                81: { desc: 'Pancadas de Chuva', icon: '🌧️' },
+                82: { desc: 'Temporal', icon: '⛈️' },
+                95: { desc: 'Tempestade', icon: '⚡' }
+            };
+
+            const applyWeatherToUI = (data) => {
+                if (!data || !data.current) return;
+                const temp = Math.round(data.current.temperature_2m);
+                const apparent = Math.round(data.current.apparent_temperature);
+                const humidity = data.current.relative_humidity_2m;
+                const wind = Math.round(data.current.wind_speed_10m);
+                const code = data.current.weather_code || 0;
+                const info = WMO_MAP[code] || { desc: 'Limpo', icon: '🌤️' };
+
+                const tempEl = document.getElementById('weather-temp');
+                const appEl = document.getElementById('weather-apparent');
+                const descEl = document.getElementById('weather-text');
+                const iconEl = document.getElementById('weather-icon');
+                const humEl = document.getElementById('weather-humidity');
+                const windEl = document.getElementById('weather-wind');
+                const minMaxEl = document.getElementById('weather-minmax');
+
+                if (tempEl) tempEl.innerText = `${temp}°C`;
+                if (appEl) appEl.innerText = `Sensação ${apparent}°`;
+                if (descEl) descEl.innerText = info.desc;
+                if (iconEl) iconEl.innerText = info.icon;
+                if (humEl) humEl.innerText = `${humidity}%`;
+                if (windEl) windEl.innerText = `${wind} km/h`;
+
+                if (data.daily && data.daily.temperature_2m_min && data.daily.temperature_2m_max) {
+                    const min = Math.round(data.daily.temperature_2m_min[0]);
+                    const max = Math.round(data.daily.temperature_2m_max[0]);
+                    if (minMaxEl) minMaxEl.innerText = `${min}° / ${max}°`;
+
+                    // Previsão dos próximos 2 dias
+                    const d1El = document.getElementById('forecast-day-1');
+                    const d2El = document.getElementById('forecast-day-2');
+
+                    if (d1El && data.daily.temperature_2m_max[1] !== undefined) {
+                        const code1 = data.daily.weather_code[1] || 0;
+                        const icon1 = (WMO_MAP[code1] || { icon: '⛅' }).icon;
+                        const min1 = Math.round(data.daily.temperature_2m_min[1]);
+                        const max1 = Math.round(data.daily.temperature_2m_max[1]);
+                        d1El.innerHTML = `<div class="text-gray-400">Amanhã</div><div class="font-bold text-white mt-0.5">${icon1} ${max1}° / ${min1}°</div>`;
+                    }
+                    if (d2El && data.daily.temperature_2m_max[2] !== undefined) {
+                        const code2 = data.daily.weather_code[2] || 0;
+                        const icon2 = (WMO_MAP[code2] || { icon: '⛅' }).icon;
+                        const min2 = Math.round(data.daily.temperature_2m_min[2]);
+                        const max2 = Math.round(data.daily.temperature_2m_max[2]);
+                        d2El.innerHTML = `<div class="text-gray-400">Depois</div><div class="font-bold text-white mt-0.5">${icon2} ${max2}° / ${min2}°</div>`;
+                    }
+                }
+            };
+
+            // Aplica cache primeiro para exibição instantânea
+            if (cachedData) {
+                try {
+                    applyWeatherToUI(JSON.parse(cachedData));
+                } catch(e) {}
+            }
+
+            // Atualiza caso cache tenha mais de 15 minutos ou não exista
+            const nowTime = Date.now();
+            if (!cachedTime || (nowTime - parseInt(cachedTime, 10) > 15 * 60 * 1000)) {
+                try {
+                    const url = "https://api.open-meteo.com/v1/forecast?latitude=-19.4589&longitude=-44.2472&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=America%2FSao_Paulo";
+                    const resp = await fetch(url);
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        localStorage.setItem(cacheKey, JSON.stringify(data));
+                        localStorage.setItem(cacheTimeKey, String(nowTime));
+                        applyWeatherToUI(data);
+                    }
+                } catch(err) {
+                    console.warn("Clima Sete Lagoas offline:", err);
+                }
+            }
+        }
+
+        setInterval(updateMonumentalClock, 1000);
+        updateMonumentalClock();
+        updateSouthernSeason();
+        updateMoonPhase();
+        fetchSeteLagoasWeather();
+
+
+        function switchCalendarMode(mode) {
+            if (mode === 'time') {
+                window.location.href = '/time';
+            }
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            } else {
+                document.exitFullscreen().catch(() => {});
+            }
+        }
+
+
+
+        
+        function selectShader(shaderName) {
+            isRotative = false;
+            localStorage.setItem('cartas_is_rotative', 'false');
+            localStorage.setItem('cartas_active_shader', shaderName);
+            if (bgInterval) { clearInterval(bgInterval); bgInterval = null; }
+
+            const modalBtn = document.getElementById('modal-rotative-btn');
+            if (modalBtn) { 
+                modalBtn.className = 'px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition flex items-center gap-1.5 cursor-pointer border bg-white/10 text-gray-300 border-white/20 hover:bg-white/20'; 
+                modalBtn.innerHTML = '<span class="hidden sm:inline">Modo Rotativo:</span> <span>Fixo</span>'; 
+            }
+
+            if (window.setWebGLBackground) {
+                window.setWebGLBackground(shaderName);
+                updateActiveShaderUI(shaderName);
+            }
+            toggleBgModal();
+        }
+
+        function stopShader() {
+            if (window.stopWebGLBackground) {
+                window.stopWebGLBackground();
+                updateActiveShaderUI('none');
+            }
+        }
+
+        function updateActiveShaderUI(activeShader) {
+            document.querySelectorAll('#bg-shader-options button').forEach(btn => {
+                if (btn.getAttribute('data-shader') === activeShader) {
+                    btn.classList.add('active-shader');
+                } else {
+                    btn.classList.remove('active-shader');
+                }
+            });
+        }
+
+        function toggleBgModal() {
+            const modal = document.getElementById('bg-modal');
+            if (!modal) return;
+            const isHidden = modal.classList.toggle('hidden');
+            if (!isHidden) {
+                document.body.style.overflow = 'hidden';
+                const searchInput = document.getElementById('shader-search-input');
+                if (searchInput && window.innerWidth >= 768) {
+                    setTimeout(() => searchInput.focus(), 60);
+                }
+            } else {
+                document.body.style.overflow = '';
+            }
+        }
+
+        function handleModalClick(e) {
+            if (e.target.id === 'bg-modal') toggleBgModal();
+        }
+
+        function filterShaders(query) {
+            const q = (query || '').toLowerCase().trim();
+            const buttons = document.querySelectorAll('#bg-shader-options .shader-btn');
+            let visibleCount = 0;
+            buttons.forEach(btn => {
+                const text = (btn.textContent || '').toLowerCase();
+                const shader = (btn.getAttribute('data-shader') || '').toLowerCase();
+                const category = (btn.getAttribute('data-category') || '').toLowerCase();
+                const match = !q || text.includes(q) || shader.includes(q) || category.includes(q);
+                if (match) {
+                    btn.style.display = '';
+                    visibleCount++;
+                } else {
+                    btn.style.display = 'none';
+                }
+            });
+        }
+
+        function filterShaderCategory(cat, pillEl) {
+            document.querySelectorAll('.shader-filter-pill').forEach(p => p.classList.remove('active-pill'));
+            if (pillEl) pillEl.classList.add('active-pill');
+            const searchInput = document.getElementById('shader-search-input');
+            if (searchInput) searchInput.value = '';
+            
+            const buttons = document.querySelectorAll('#bg-shader-options .shader-btn');
+            buttons.forEach(btn => {
+                const category = (btn.getAttribute('data-category') || '').toLowerCase();
+                if (cat === 'all' || category.includes(cat.toLowerCase())) {
+                    btn.style.display = '';
+                } else {
+                    btn.style.display = 'none';
+                }
+            });
+        }
+
+        function toggleRotativeMode() {
+            isRotative = !isRotative;
+            localStorage.setItem('cartas_is_rotative', isRotative ? 'true' : 'false');
+            const modalBtn = document.getElementById('modal-rotative-btn');
+
+            if (isRotative) {
+                if (modalBtn) { 
+                    modalBtn.className = 'px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition flex items-center gap-1.5 cursor-pointer border bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'; 
+                    modalBtn.innerHTML = '<span class="hidden sm:inline">Modo Rotativo:</span> <span>Ativado 🟢</span>'; 
+                }
+                rotateBackground();
+                startRotativeCycle();
+            } else {
+                if (bgInterval) { clearInterval(bgInterval); bgInterval = null; }
+                if (modalBtn) { 
+                    modalBtn.className = 'px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition flex items-center gap-1.5 cursor-pointer border bg-white/10 text-gray-300 border-white/20 hover:bg-white/20'; 
+                    modalBtn.innerHTML = '<span class="hidden sm:inline">Modo Rotativo:</span> <span>Fixo</span>'; 
+                }
+            }
+        }
+
+        function handleSpeedSliderChange(val) {
+            rotativeSpeedSecs = parseInt(val, 10);
+            localStorage.setItem('cartas_rotative_speed', rotativeSpeedSecs.toString());
+            const speedVal = document.getElementById('slider-speed-val');
+            if (speedVal) speedVal.innerText = `${rotativeSpeedSecs}s`;
+            if (isRotative) startRotativeCycle();
+        }
+
+        window.addEventListener('keydown', (e) => {
+            const a = document.activeElement;
+            const isTyping = a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || a.isContentEditable);
+            if ((e.key === 'h' || e.key === 'H' || e.key === 'Home') && !isTyping && !e.metaKey && !e.ctrlKey && !e.altKey) {
+                e.preventDefault();
+                window.location.href = 'index.html';
+                return;
+            }
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('bg-modal');
+                if (modal && !modal.classList.contains('hidden')) toggleBgModal();
+            }
+        });
+
+        // Inicialização do Background System herdado do Personal OS
+        const shaders = ['softaurora', 'plasmawave', 'strands', 'siderays', 'beams', 'floatinglines', 'silk', 'radar', 'ripplegrid', 'pixelblast', 'magicrings', 'gridscan', 'liquidchrome', 'linewaves', 'ferrofluid', 'dither', 'darkveil', 'webthreads', 'topography', 'balatro', 'faultyterminal', 'morphslider', 'antigravity', 'aurora', 'letterglitch', 'plasma', 'hyperspeed', 'prism', 'prismaticburst', 'lightning', 'evileye'];
+        let currentShaderIndex = 0;
+        let isRotative = localStorage.getItem('cartas_is_rotative') === 'true';
+        let rotativeSpeedSecs = parseInt(localStorage.getItem('cartas_rotative_speed') || '5', 10);
+        let bgInterval = null;
+
+        function initBackgroundSystem() {
+            const savedShader = localStorage.getItem('cartas_active_shader');
+            if (!isRotative && savedShader && savedShader !== 'none') {
+                if (window.setWebGLBackground) window.setWebGLBackground(savedShader);
+            } else {
+                isRotative = true;
+                rotateBackground();
+                startRotativeCycle();
+            }
+        }
+
+        function rotateBackground() {
+            if (!isRotative || document.hidden) return;
+            const shader = shaders[currentShaderIndex];
+            if (window.setWebGLBackground) {
+                window.setWebGLBackground(shader);
+            }
+            currentShaderIndex = (currentShaderIndex + 1) % shaders.length;
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                updateMonumentalClock();
+                if (isRotative) rotateBackground();
+            }
+        });
+
+        function startRotativeCycle() {
+            if (bgInterval) clearInterval(bgInterval);
+            bgInterval = setInterval(rotateBackground, rotativeSpeedSecs * 1000);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const checkAndRunBg = () => {
+                if (window.renderWebGLBackground || window.setWebGLBackground) {
+                    initBackgroundSystem();
+                } else {
+                    setTimeout(checkAndRunBg, 150);
+                }
+            };
+            checkAndRunBg();
+
+            if (window.ControlEngine && typeof window.ControlEngine.renderControlCalendar === 'function') {
+                setTimeout(() => {
+                    window.ControlEngine.renderControlCalendar();
+                }, 100);
+            }
+        });
+    </script>
+    
+
+    <div id="control-todo-modal" class="ultra-liquid-glass-backdrop fixed inset-0 z-[110] flex items-center justify-center hidden p-3 sm:p-6 transition-opacity duration-300 overflow-y-auto" onclick="if(event.target===this) window.ControlEngine.closeTodoModal()">
+        <div class="ultra-liquid-glass-modal p-5 sm:p-7 rounded-2xl sm:rounded-3xl max-w-lg w-full max-h-[92dvh] flex flex-col relative overflow-hidden m-auto" onclick="event.stopPropagation()">
+            
+            <div class="flex items-center justify-between pb-3.5 border-b border-white/15 shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-2xl">📋</span>
+                    <div>
+                        <h3 id="todo-modal-title" class="text-lg font-bold text-white tracking-tight">Nova Tarefa</h3>
+                        <p class="text-[10px] font-mono text-gray-300">To-Do Personals &bull; M.C.P Personal OS</p>
+                    </div>
+                </div>
+                <button onclick="window.ControlEngine.closeTodoModal()" class="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white text-base font-mono flex items-center justify-center cursor-pointer transition">✕</button>
+            </div>
+
+            <form onsubmit="window.ControlEngine.handleSaveTodoForm(event)" class="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
+                
+                <div>
+                    <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Título da Tarefa *</label>
+                    <input type="text" id="todo-input-title" required placeholder="ex: Finalizar arquitetura do projeto..." class="w-full input-glass rounded-xl px-3.5 py-2.5 text-xs font-mono text-white min-h-[42px]" />
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Descrição / Checklist (Markdown)</label>
+                    <textarea id="todo-input-desc" rows="3" placeholder="Detalhes, subtarefas ou critérios de conclusão..." class="w-full input-glass rounded-xl p-3 text-xs font-mono text-gray-200 leading-relaxed resize-y"></textarea>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Grupo / Lista</label>
+                        <select id="todo-form-group" class="w-full input-glass rounded-xl px-3 py-2.5 text-xs font-mono text-white min-h-[42px]">
+                            <!-- Opções dinâmicas injetadas via JS -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Prioridade</label>
+                        <select id="todo-input-priority" class="w-full input-glass rounded-xl px-3 py-2.5 text-xs font-mono text-white min-h-[42px]">
+                            <option value="normal" selected>🟢 Normal</option>
+                            <option value="high">🟡 Alta Prioridade</option>
+                            <option value="urgent">🔴 Urgente</option>
+                            <option value="low">🔵 Baixa</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Programação de Data & Alarme -->
+                <div class="p-3.5 rounded-2xl bg-white/[0.06] border border-white/15 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-mono font-bold text-amber-300 flex items-center gap-1.5">
+                            <span>⏰</span>
+                            <span>Programação & Alarme Sonoro</span>
+                        </span>
+                        <label class="flex items-center gap-2 text-[10px] font-mono text-gray-200 cursor-pointer">
+                            <input type="checkbox" id="todo-input-alarm" checked class="w-4 h-4 rounded accent-amber-500 cursor-pointer">
+                            <span>Tocar Alarme</span>
+                        </label>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div>
+                            <label class="block text-[9px] font-mono text-gray-300 uppercase mb-1">Data Principal</label>
+                            <input type="date" id="todo-input-date" class="w-full input-glass rounded-xl px-3 py-2 text-xs font-mono text-white min-h-[40px]" />
+                        </div>
+                        <div>
+                            <label class="block text-[9px] font-mono text-gray-300 uppercase mb-1">Horário (BRT)</label>
+                            <input type="time" id="todo-input-time" value="12:00" class="w-full input-glass rounded-xl px-3 py-2 text-xs font-mono text-white min-h-[40px]" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Seção: Tarefa Recorrente com Calendário Mensal Navegável -->
+                <div class="p-3.5 rounded-2xl bg-white/[0.06] border border-sky-500/30 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-mono font-bold text-sky-300 flex items-center gap-1.5">
+                            <span>🔁</span>
+                            <span>Tarefa Recorrente (Múltiplas Datas)</span>
+                        </span>
+                        <label class="flex items-center gap-2 text-[10px] font-mono text-gray-200 cursor-pointer">
+                            <input type="checkbox" id="todo-input-recurring" onchange="window.ControlEngine.toggleTodoRecurringCalendar(this.checked)" class="w-4 h-4 rounded accent-sky-500 cursor-pointer">
+                            <span>Ativar Recorrência</span>
+                        </label>
+                    </div>
+
+                    <!-- Container do Calendário Interativo para Seleção Livre de Dias -->
+                    <div id="todo-recurring-calendar-container" class="hidden space-y-2.5 pt-2 border-t border-white/10">
+                        
+                        <!-- Navegação do Mês no Editor + Atalhos -->
+                        <div class="flex items-center justify-between flex-wrap gap-2">
+                            <div class="flex items-center gap-1.5">
+                                <button type="button" onclick="window.ControlEngine.navigateTodoModalMonth(-1)" class="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-mono text-xs cursor-pointer active:scale-95">◀</button>
+                                <span id="todo-modal-calendar-month" class="text-xs font-mono font-bold text-white min-w-[120px] text-center">Agosto 2026</span>
+                                <button type="button" onclick="window.ControlEngine.navigateTodoModalMonth(1)" class="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-mono text-xs cursor-pointer active:scale-95">▶</button>
+                            </div>
+
+                            <!-- Atalhos de Seleção Rápida -->
+                            <div class="flex items-center gap-1 flex-wrap text-[9px] font-mono">
+                                <button type="button" onclick="window.ControlEngine.quickSelectTodoDays('month')" class="px-2 py-0.5 rounded-md bg-white/10 hover:bg-white/20 text-gray-300 cursor-pointer">Mês Todo</button>
+                                <button type="button" onclick="window.ControlEngine.quickSelectTodoDays('weekdays')" class="px-2 py-0.5 rounded-md bg-white/10 hover:bg-white/20 text-sky-300 cursor-pointer">Seg-Sex</button>
+                                <button type="button" onclick="window.ControlEngine.quickSelectTodoDays('weekend')" class="px-2 py-0.5 rounded-md bg-white/10 hover:bg-white/20 text-purple-300 cursor-pointer">Sáb-Dom</button>
+                                <button type="button" onclick="window.ControlEngine.quickSelectTodoDays('clear')" class="px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-300 cursor-pointer">Limpar</button>
+                            </div>
+                        </div>
+
+                        <!-- Grade de Dias da Semana -->
+                        <div class="grid grid-cols-7 gap-1 text-center font-mono text-[9px] font-bold text-gray-400 uppercase py-0.5">
+                            <div class="text-rose-400">Dom</div>
+                            <div>Seg</div>
+                            <div>Ter</div>
+                            <div>Qua</div>
+                            <div>Qui</div>
+                            <div>Sex</div>
+                            <div class="text-sky-400">Sáb</div>
+                        </div>
+
+                        <!-- Grade de Células de Dias Selecionáveis -->
+                        <div id="todo-modal-calendar-grid" class="grid grid-cols-7 gap-1">
+                            <!-- Injetado dinamicamente via JS -->
+                        </div>
+
+                        <!-- Resumo e Dica -->
+                        <div class="flex items-center justify-between text-[10px] font-mono text-gray-300 pt-1 flex-wrap gap-1">
+                            <span id="todo-modal-selected-dates-summary" class="text-sky-300 font-bold">0 datas selecionadas</span>
+                            <span class="text-[9px] text-gray-400">Clique para marcar/desmarcar dias</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-3 border-t border-white/15 flex justify-between items-center gap-2 shrink-0">
+                    <button type="button" id="btn-delete-todo-modal" onclick="window.ControlEngine.deleteTodo(window.ControlEngine.currentEditingTodo?.id)" class="px-3.5 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/35 text-rose-200 border border-rose-500/40 font-mono text-xs cursor-pointer transition hidden flex items-center gap-1">
+                        <span>🗑️</span>
+                        <span>Excluir</span>
+                    </button>
+                    <div class="flex items-center gap-2 ml-auto">
+                        <button type="button" onclick="window.ControlEngine.closeTodoModal()" class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-gray-200 font-mono text-xs cursor-pointer transition">
+                            Cancelar
+                        </button>
+                        <button type="submit" class="px-5 py-2.5 bg-white hover:bg-gray-200 text-black font-mono font-bold text-xs uppercase tracking-wider rounded-xl transition shadow-lg cursor-pointer active:scale-95">
+                            💾 Salvar Tarefa
+                        </button>
+                    </div>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+
+    <!-- 2. CONTROL: GROUPS MANAGER MODAL (LISTAS DE TAREFAS) -->
+    <div id="control-groups-manager-modal" class="ultra-liquid-glass-backdrop fixed inset-0 z-[110] flex items-center justify-center hidden p-3 sm:p-6 transition-opacity duration-300 overflow-y-auto" onclick="if(event.target===this) window.ControlEngine.closeGroupsManagerModal()">
+        <div class="ultra-liquid-glass-modal p-5 sm:p-7 rounded-2xl sm:rounded-3xl max-w-lg w-full max-h-[90dvh] flex flex-col relative overflow-hidden m-auto" onclick="event.stopPropagation()">
+            
+            <div class="flex items-center justify-between pb-3.5 border-b border-white/15 shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-2xl">📑</span>
+                    <div>
+                        <h3 class="text-lg font-bold text-white tracking-tight">Listas & Grupos de Tarefas</h3>
+                        <p class="text-[10px] font-mono text-gray-300">Organização temática das caixas Glassmorphism</p>
+                    </div>
+                </div>
+                <button onclick="window.ControlEngine.closeGroupsManagerModal()" class="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white text-base font-mono flex items-center justify-center cursor-pointer transition">✕</button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto py-4 space-y-3 pr-1">
+                <div class="flex justify-between items-center pb-2">
+                    <span class="text-xs font-mono text-gray-200">Grupos Cadastrados:</span>
+                    <button onclick="window.ControlEngine.openEditTodoGroupModal(null)" class="text-xs font-mono font-bold px-3 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-black transition flex items-center gap-1.5 cursor-pointer shadow">
+                        <span>➕</span>
+                        <span>Novo Grupo</span>
+                    </button>
+                </div>
+
+                <div id="groups-manager-list" class="space-y-2">
+                    <!-- Injetado via JS -->
+                </div>
+            </div>
+
+            <div class="pt-3 border-t border-white/15 flex justify-end">
+                <button onclick="window.ControlEngine.closeGroupsManagerModal()" class="px-5 py-2 rounded-xl bg-white text-black font-bold font-mono text-xs cursor-pointer hover:bg-gray-200 transition">
+                    Fechar
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 3. CONTROL: GROUP EDIT/CREATE MODAL -->
+    <div id="control-group-edit-modal" class="ultra-liquid-glass-backdrop fixed inset-0 z-[120] flex items-center justify-center hidden p-3 sm:p-6 transition-opacity duration-300 overflow-y-auto" onclick="if(event.target===this) window.ControlEngine.closeEditTodoGroupModal()">
+        <div class="ultra-liquid-glass-modal p-5 sm:p-7 rounded-2xl sm:rounded-3xl max-w-md w-full max-h-[90dvh] flex flex-col relative overflow-hidden m-auto" onclick="event.stopPropagation()">
+            
+            <div class="flex items-center justify-between pb-3.5 border-b border-white/15 shrink-0">
+                <h3 id="group-modal-title" class="text-lg font-bold text-white tracking-tight">Editar Grupo</h3>
+                <button onclick="window.ControlEngine.closeEditTodoGroupModal()" class="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-gray-300 text-base font-mono flex items-center justify-center cursor-pointer transition">✕</button>
+            </div>
+
+            <form onsubmit="window.ControlEngine.handleSaveTodoGroupForm(event)" class="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
+                <div>
+                    <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Nome do Grupo *</label>
+                    <input type="text" id="group-input-title" required placeholder="ex: Projetos Estratégicos..." class="w-full input-glass rounded-xl px-3.5 py-2.5 text-xs font-mono text-white min-h-[42px]" />
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Breve Resumo</label>
+                    <input type="text" id="group-input-desc" placeholder="ex: Tarefas de alta prioridade executiva..." class="w-full input-glass rounded-xl px-3.5 py-2 text-xs font-mono text-gray-200 min-h-[40px]" />
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Cor de Destaque da Caixa</label>
+                    <select id="group-input-color" class="w-full input-glass rounded-xl px-3 py-2 text-xs font-mono font-bold text-white min-h-[40px]">
+                        <option value="#38bdf8" selected>🔵 Azul Ciano Elétrico</option>
+                        <option value="#a855f7">🟣 Púrpura Imperial</option>
+                        <option value="#10b981">🟢 Verde Esmeralda</option>
+                        <option value="#f59e0b">🟡 Âmbar Solar</option>
+                        <option value="#ec4899">🌸 Rosa Choque</option>
+                        <option value="#f97316">🟠 Laranja Neon</option>
+                        <option value="#f8fafc">💎 Branco Cristal</option>
+                    </select>
+                </div>
+
+                <!-- Seletor de Emojis do Grupo -->
+                <div>
+                    <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Ícone / Emoji do Grupo (+400 Emojis)</label>
+                    <div id="group-emoji-picker" class="p-2 rounded-xl bg-white/[0.04] border border-white/10">
+                        <!-- Injetado via JS -->
+                    </div>
+                </div>
+
+                <div class="pt-3 border-t border-white/15 flex justify-between items-center gap-2 shrink-0">
+                    <button type="button" id="btn-delete-group-modal" onclick="window.ControlEngine.deleteTodoGroup(window.ControlEngine.currentEditingTodoGroup?.id)" class="px-3.5 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/35 text-rose-200 border border-rose-500/40 font-mono text-xs cursor-pointer transition hidden flex items-center gap-1">
+                        <span>🗑️</span>
+                        <span>Excluir Grupo</span>
+                    </button>
+                    <div class="flex items-center gap-2 ml-auto">
+                        <button type="button" onclick="window.ControlEngine.closeEditTodoGroupModal()" class="px-4 py-2 rounded-xl bg-white/10 text-gray-200 font-mono text-xs cursor-pointer">
+                            Cancelar
+                        </button>
+                        <button type="submit" class="px-5 py-2.5 bg-white text-black font-mono font-bold text-xs uppercase tracking-wider rounded-xl hover:bg-gray-200 transition shadow cursor-pointer">
+                            💾 Salvar Grupo
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+        </div>
+    </div>
+
+    <!-- 4. CONTROL: REMINDER & ALARM EDITOR MODAL -->
+    <div id="control-reminder-modal" class="ultra-liquid-glass-backdrop fixed inset-0 z-[110] flex items-center justify-center hidden p-3 sm:p-6 transition-opacity duration-300 overflow-y-auto" onclick="if(event.target===this) window.ControlEngine.closeReminderModal()">
+        <div class="ultra-liquid-glass-modal p-5 sm:p-7 rounded-2xl sm:rounded-3xl max-w-lg w-full max-h-[92dvh] flex flex-col relative overflow-hidden m-auto" onclick="event.stopPropagation()">
+            
+            <div class="flex items-center justify-between pb-3.5 border-b border-white/15 shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-2xl">⏰</span>
+                    <div>
+                        <h3 id="reminder-modal-title" class="text-lg font-bold text-white tracking-tight">Novo Lembrete</h3>
+                        <p class="text-[10px] font-mono text-gray-300">Alarme sonoro amplificado em Loop + Disparo de Email</p>
+                    </div>
+                </div>
+                <button onclick="window.ControlEngine.closeReminderModal()" class="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-gray-300 text-base font-mono flex items-center justify-center cursor-pointer transition">✕</button>
+            </div>
+
+            <form onsubmit="window.ControlEngine.handleSaveReminderForm(event)" class="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
+                <div>
+                    <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Título do Lembrete *</label>
+                    <input type="text" id="reminder-input-title" required placeholder="ex: Reunião Executiva, Tomar Suplementação..." class="w-full input-glass rounded-xl px-3.5 py-2.5 text-xs font-mono text-white min-h-[42px]" />
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Notas / Descrição</label>
+                    <textarea id="reminder-input-notes" rows="2" placeholder="Detalhes que serão exibidos no alarme e enviados por email..." class="w-full input-glass rounded-xl p-3 text-xs font-mono text-gray-200 resize-y"></textarea>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Grupo de Lembretes</label>
+                        <select id="reminder-form-group" class="w-full input-glass rounded-xl px-3 py-2.5 text-xs font-mono text-white min-h-[42px]">
+                            <!-- Injetado via JS -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Frequência</label>
+                        <select id="reminder-input-type" class="w-full input-glass rounded-xl px-3 py-2.5 text-xs font-mono text-white min-h-[42px]">
+                            <option value="one_time" selected>One Time (Pontual 1x)</option>
+                            <option value="daily">Diariamente (Todos os Dias)</option>
+                            <option value="weekly">Semanal</option>
+                            <option value="monthly">Mensal</option>
+                            <option value="bimonthly">Bimestral (A cada 2 meses)</option>
+                            <option value="quarterly">Trimestral (A cada 3 meses)</option>
+                            <option value="semiannual">Semestral (A cada 6 meses)</option>
+                            <option value="annual">Anual (A cada 1 ano)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Data (se 1x)</label>
+                        <input type="date" id="reminder-input-date" class="w-full input-glass rounded-xl px-3 py-2 text-xs font-mono text-white min-h-[42px]" />
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Horário (BRT) *</label>
+                        <input type="time" id="reminder-input-time" value="12:00" required class="w-full input-glass rounded-xl px-3 py-2 text-xs font-mono text-white min-h-[42px]" />
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Cor de Destaque</label>
+                    <select id="reminder-input-color" class="w-full input-glass rounded-xl px-3 py-2 text-xs font-mono text-white min-h-[40px]">
+                        <option value="#a855f7" selected>🟣 Púrpura</option>
+                        <option value="#ec4899">🌸 Rosa Choque</option>
+                        <option value="#f59e0b">🟡 Âmbar</option>
+                        <option value="#38bdf8">🔵 Ciano</option>
+                        <option value="#10b981">🟢 Verde</option>
+                    </select>
+                </div>
+
+                <!-- Emoji Picker -->
+                <div>
+                    <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Ícone / Emoji (+400 Emojis)</label>
+                    <div id="reminder-emoji-picker" class="p-2 rounded-xl bg-white/[0.04] border border-white/10">
+                        <!-- Injetado via JS -->
+                    </div>
+                </div>
+
+                <div class="pt-3 border-t border-white/15 flex justify-between items-center gap-2 shrink-0">
+                    <button type="button" id="btn-delete-reminder-modal" onclick="window.ControlEngine.deleteReminder(window.ControlEngine.currentEditingReminder?.id)" class="px-3.5 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/35 text-rose-200 border border-rose-500/40 font-mono text-xs cursor-pointer transition hidden flex items-center gap-1">
+                        <span>🗑️</span>
+                        <span>Excluir</span>
+                    </button>
+                    <div class="flex items-center gap-2 ml-auto">
+                        <button type="button" onclick="window.ControlEngine.closeReminderModal()" class="px-4 py-2 rounded-xl bg-white/10 text-gray-200 font-mono text-xs cursor-pointer">
+                            Cancelar
+                        </button>
+                        <button type="submit" class="px-5 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-400 hover:to-indigo-400 text-white font-mono font-bold text-xs uppercase tracking-wider rounded-xl transition shadow-lg cursor-pointer active:scale-95">
+                            💾 Salvar Lembrete
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+        </div>
+    </div>
+
+    <!-- 4.0. CONTROL: STUDY BLOCK EDITOR MODAL (ESTUDOS) -->
+    <div id="control-study-modal" class="ultra-liquid-glass-backdrop fixed inset-0 z-[110] flex items-center justify-center hidden p-3 sm:p-6 transition-opacity duration-300 overflow-y-auto" onclick="if(event.target===this) window.ControlEngine.closeStudyBlockModal()">
+        <div class="ultra-liquid-glass-modal p-5 sm:p-7 rounded-2xl sm:rounded-3xl max-w-lg w-full max-h-[92dvh] flex flex-col relative overflow-hidden m-auto" onclick="event.stopPropagation()">
+            
+            <div class="flex items-center justify-between pb-3.5 border-b border-white/15 shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-2xl">📚</span>
+                    <div>
+                        <h3 id="study-modal-title" class="text-lg font-bold text-white tracking-tight">Novo Bloco de Estudo</h3>
+                        <p class="text-[10px] font-mono text-gray-300">Grade Semanal Notion & Google Agenda (STUD:)</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="window.ControlEngine.testStudyAlarm()" class="px-3 py-1.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/35 border border-sky-500/40 text-sky-300 font-mono text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer active:scale-95 shadow" title="Testar Alarme de Estudo em tela cheia com Som e Envio de E-mail">
+                        <span>⚡</span> <span>Testar Alarme & Email</span>
+                    </button>
+                    <button onclick="window.ControlEngine.closeStudyBlockModal()" class="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-gray-300 text-base font-mono flex items-center justify-center cursor-pointer transition">✕</button>
+                </div>
+            </div>
+
+            <form onsubmit="window.ControlEngine.handleSaveStudyBlockForm(event)" class="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
+                <div>
+                    <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Matéria / Disciplina *</label>
+                    <input type="text" id="study-input-title" required placeholder="ex: Cálculo 01, MBA, Curso de Vendas..." class="w-full input-glass rounded-xl px-3.5 py-2.5 text-xs font-mono text-white min-h-[42px]" />
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Dia da Semana *</label>
+                        <select id="study-input-day" required class="w-full input-glass rounded-xl px-3 py-2.5 text-xs font-mono text-white min-h-[42px]">
+                            <option value="SEG">Segunda (SEG)</option>
+                            <option value="TER">Terça (TER)</option>
+                            <option value="QUA">Quarta (QUA)</option>
+                            <option value="QUI">Quinta (QUI)</option>
+                            <option value="SEX">Sexta (SEX)</option>
+                            <option value="SAB">Sábado (SÁB)</option>
+                            <option value="DOM">Domingo (DOM)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Início *</label>
+                        <input type="time" id="study-input-start-time" value="08:30" required class="w-full input-glass rounded-xl px-3 py-2 text-xs font-mono text-white min-h-[42px]" />
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Término *</label>
+                        <input type="time" id="study-input-end-time" value="13:30" required class="w-full input-glass rounded-xl px-3 py-2 text-xs font-mono text-white min-h-[42px]" />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Tag / Categoria</label>
+                        <input type="text" id="study-input-tag" placeholder="ex: Cálculo 01, MBA, Vendas..." class="w-full input-glass rounded-xl px-3.5 py-2.5 text-xs font-mono text-white min-h-[42px]" />
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Cor Visual do Cartão</label>
+                        <select id="study-input-color" class="w-full input-glass rounded-xl px-3 py-2.5 text-xs font-mono text-white min-h-[42px]">
+                            <option value="#e67c73" selected>🔴 Vermelho Suave (Notion)</option>
+                            <option value="#8e24aa">🟣 Roxo Suave (Notion)</option>
+                            <option value="#f4511e">🟠 Laranja Suave (Notion)</option>
+                            <option value="#039be5">🔵 Azul Suave (Notion)</option>
+                            <option value="#33b679">🟢 Verde Sálvia</option>
+                            <option value="#f6bf26">🟡 Amarelo Banana</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Anotações / Ementa</label>
+                    <textarea id="study-input-notes" rows="2" placeholder="Conteúdo da aula, links de material ou tópicos a revisar..." class="w-full input-glass rounded-xl p-3 text-xs font-mono text-gray-200 resize-y"></textarea>
+                </div>
+
+                <!-- Opção de Sincronização Imediata com Google Calendar -->
+                <div class="p-3 rounded-xl bg-purple-500/10 border border-purple-500/25 flex items-center justify-between gap-3">
+                    <label class="flex items-center gap-2 cursor-pointer select-none text-xs font-mono text-purple-200">
+                        <input type="checkbox" id="study-input-sync-gcal" checked class="rounded border-white/20 text-purple-500 focus:ring-purple-400 bg-white/10 w-4 h-4 cursor-pointer" />
+                        <span>Sincronizar no Google Agenda (<strong class="text-white">STUD: [Título]</strong>)</span>
+                    </label>
+                    <span class="text-[10px] font-mono text-gray-400">Usa cor predeterminada</span>
+                </div>
+
+                <div class="pt-3 border-t border-white/15 flex justify-between items-center gap-2 shrink-0">
+                    <button type="button" id="btn-delete-study-modal" onclick="window.ControlEngine.deleteStudyBlock(window.ControlEngine.currentEditingStudyBlock?.id)" class="px-3.5 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/35 text-rose-200 border border-rose-500/40 font-mono text-xs cursor-pointer transition hidden flex items-center gap-1">
+                        <span>🗑️</span>
+                        <span>Excluir</span>
+                    </button>
+                    <div class="flex items-center gap-2 ml-auto">
+                        <button type="button" onclick="window.ControlEngine.closeStudyBlockModal()" class="px-4 py-2 rounded-xl bg-white/10 text-gray-200 font-mono text-xs cursor-pointer">
+                            Cancelar
+                        </button>
+                        <button type="submit" class="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-mono font-bold text-xs uppercase tracking-wider rounded-xl transition shadow-lg cursor-pointer active:scale-95">
+                            💾 Salvar Estudo
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+        </div>
+    </div>
+
+            <!-- 4.0.0-C. MODAL INTELIGENTE: COPIAR SEMANA ATUAL COMO NOVO MODELO -->
+    <div id="copy-week-template-modal" class="ultra-liquid-glass-backdrop fixed inset-0 z-[125] flex items-center justify-center hidden p-3 sm:p-6 transition-opacity duration-300 overflow-y-auto" onclick="if(event.target===this) window.ControlEngine.closeCopyWeekAsTemplateModal()">
+        <div class="ultra-liquid-glass-modal p-5 sm:p-7 rounded-2xl sm:rounded-3xl max-w-lg w-full max-h-[92dvh] flex flex-col relative overflow-hidden m-auto space-y-4" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between pb-3 border-b border-white/15 shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-2xl" id="copy-week-modal-icon">📋</span>
+                    <div>
+                        <h3 class="text-base sm:text-lg font-bold text-white tracking-tight" id="copy-week-modal-title">Copiar Semana Atual como Modelo</h3>
+                        <p class="text-[10px] font-mono text-gray-300" id="copy-week-modal-subtitle">Salve a rotina atual para reutilizar a qualquer momento</p>
+                    </div>
+                </div>
+                <button onclick="window.ControlEngine.closeCopyWeekAsTemplateModal()" class="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-gray-300 text-base font-mono flex items-center justify-center cursor-pointer transition">✕</button>
+            </div>
+
+            <!-- Resumo Inteligente dos Itens Encontrados -->
+            <div class="p-4 rounded-2xl bg-white/[0.04] border border-white/10 space-y-2.5">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-mono font-bold text-white uppercase tracking-wider">Conteúdo Detectado:</span>
+                    <span id="copy-week-items-count-badge" class="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">0 itens</span>
+                </div>
+                <div id="copy-week-items-preview-list" class="text-[11px] font-mono text-gray-300 max-h-36 overflow-y-auto space-y-1.5 pr-1"></div>
+            </div>
+
+            <!-- Formulário de Destino -->
+            <form onsubmit="window.ControlEngine.executeCopyWeekToTemplate(event)" class="space-y-3.5">
+                <div>
+                    <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Onde Salvar este Modelo?</label>
+                    <select id="copy-week-destination-slot" class="w-full input-glass rounded-xl px-3.5 py-2.5 text-xs font-mono text-white cursor-pointer min-h-[40px]"></select>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Nome do Modelo *</label>
+                    <input type="text" id="copy-week-template-name" required placeholder="ex: Semana de Sprint / Produção Intensa" class="w-full input-glass rounded-xl px-3.5 py-2 text-xs font-mono text-white min-h-[38px]" />
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Descrição (Opcional)</label>
+                    <input type="text" id="copy-week-template-desc" placeholder="ex: Modelo capturado da semana atual com rotina otimizada" class="w-full input-glass rounded-xl px-3.5 py-2 text-xs font-mono text-gray-300 min-h-[38px]" />
+                </div>
+
+                <div class="pt-2 border-t border-white/10 flex justify-end gap-2 shrink-0">
+                    <button type="button" onclick="window.ControlEngine.closeCopyWeekAsTemplateModal()" class="px-4 py-2 bg-white/10 hover:bg-white/20 text-gray-300 font-mono text-xs rounded-xl transition cursor-pointer">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-mono font-bold text-xs uppercase tracking-wider rounded-xl transition shadow-lg cursor-pointer active:scale-95 flex items-center gap-1.5">
+                        <span>💾</span>
+                        <span>Salvar como Modelo</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 4.0.0-A. CONTROL: TODO SETTINGS & SEMANAS MODELO CONFIG MODAL (4 ABAS HIPER-INTELIGENTES) -->
+    <div id="todo-config-modal" class="ultra-liquid-glass-backdrop fixed inset-0 z-[110] flex items-center justify-center hidden p-3 sm:p-6 transition-opacity duration-300 overflow-y-auto" onclick="if(event.target===this) window.ControlEngine.closeTodoConfigModal()">
+        <div class="ultra-liquid-glass-modal p-5 sm:p-7 rounded-2xl sm:rounded-3xl max-w-3xl w-full max-h-[92dvh] flex flex-col relative overflow-hidden m-auto" onclick="event.stopPropagation()">
+            
+            <div class="flex items-center justify-between pb-3.5 border-b border-white/15 shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-2xl">⚙️</span>
+                    <div>
+                        <h3 class="text-lg font-bold text-white tracking-tight">Painel de Gestão: To-Do Personals</h3>
+                        <p class="text-[10px] font-mono text-gray-300">Semanas Modelo, Inteligência de Carga, Ações em Massa & Cores</p>
+                    </div>
+                </div>
+                <button onclick="window.ControlEngine.closeTodoConfigModal()" class="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-gray-300 text-base font-mono flex items-center justify-center cursor-pointer transition">✕</button>
+            </div>
+
+            <!-- 4 Abas do Modal de Configuração -->
+            <div class="flex items-center gap-1.5 pt-3 border-b border-white/10 shrink-0 pb-2 overflow-x-auto hide-scrollbar">
+                <button type="button" id="tab-todo-cfg-templates" onclick="window.ControlEngine.setTodoConfigTab('templates')" class="px-3.5 py-2 rounded-xl font-mono text-xs font-bold transition cursor-pointer flex items-center gap-1.5 bg-emerald-600 text-white shadow-md ring-1 ring-white/30 whitespace-nowrap">
+                    <span>📋</span> <span>Semanas Modelo</span>
+                </button>
+                <button type="button" id="tab-todo-cfg-analytics" onclick="window.ControlEngine.setTodoConfigTab('analytics')" class="px-3.5 py-2 rounded-xl font-mono text-xs font-bold transition cursor-pointer flex items-center gap-1.5 bg-white/10 text-gray-300 hover:bg-white/20 whitespace-nowrap">
+                    <span>📊</span> <span>Carga & Inteligência</span>
+                </button>
+                <button type="button" id="tab-todo-cfg-bulk" onclick="window.ControlEngine.setTodoConfigTab('bulk')" class="px-3.5 py-2 rounded-xl font-mono text-xs font-bold transition cursor-pointer flex items-center gap-1.5 bg-white/10 text-gray-300 hover:bg-white/20 whitespace-nowrap">
+                    <span>⚡</span> <span>Ações em Massa</span>
+                </button>
+                <button type="button" id="tab-todo-cfg-colors" onclick="window.ControlEngine.setTodoConfigTab('colors')" class="px-3.5 py-2 rounded-xl font-mono text-xs font-bold transition cursor-pointer flex items-center gap-1.5 bg-white/10 text-gray-300 hover:bg-white/20 whitespace-nowrap">
+                    <span>🎨</span> <span>Cores & Estilo</span>
+                </button>
+            </div>
+
+            <!-- PAINEL 1: SEMANAS MODELO -->
+            <div id="todo-cfg-panel-templates" class="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <label class="text-[11px] font-mono text-gray-200 uppercase font-bold">Modelos Salvos:</label>
+                        <button type="button" onclick="window.ControlEngine.addNewCustomTodoTemplate()" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/35 text-emerald-300 border border-emerald-500/30 text-[10px] font-mono font-bold transition cursor-pointer">
+                            ＋ Novo Modelo
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2" id="todo-cfg-templates-selector"></div>
+                </div>
+
+                <div class="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-between flex-wrap gap-2">
+                    <div class="space-y-0.5">
+                        <span class="text-xs font-mono font-bold text-white block" id="todo-cfg-selected-model-title">Modelo Selecionado</span>
+                        <span class="text-[10px] font-mono text-gray-400 block truncate max-w-[280px]" id="todo-cfg-selected-model-desc">Descrição breve</span>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <button type="button" onclick="window.ControlEngine.applySelectedTodoTemplateFromConfig()" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-mono font-bold text-xs shadow-md transition cursor-pointer active:scale-95 flex items-center gap-1.5" title="Pré-preencher a semana atual">
+                            <span>⚡</span> <span>Aplicar na Semana</span>
+                        </button>
+                        <button type="button" onclick="window.ControlEngine.openCopyWeekAsTemplateModal('todos')" class="px-3 py-1.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/35 text-sky-300 border border-sky-500/30 font-mono text-xs transition cursor-pointer flex items-center gap-1.5" title="Capturar a semana atual">
+                            <span>📥</span> <span>Copiar da Semana</span>
+                        </button>
+                        <button type="button" onclick="window.ControlEngine.duplicateCurrentTodoTemplate()" class="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-gray-300 font-mono text-xs transition cursor-pointer" title="Duplicar este modelo">
+                            <span>📑</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/10 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-mono font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                            <span>✏️</span> <span>Editor do Modelo</span>
+                        </span>
+                        <button type="button" onclick="window.ControlEngine.addBlockToEditingTodoTemplate()" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/35 text-emerald-300 border border-emerald-500/30 text-xs font-mono font-bold transition cursor-pointer">
+                            ＋ Nova Tarefa
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Nome do Modelo</label>
+                            <input type="text" id="todo-template-edit-name" class="w-full input-glass rounded-xl px-3.5 py-2 text-xs font-mono text-white min-h-[38px]" />
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Descrição</label>
+                            <input type="text" id="todo-template-edit-desc" class="w-full input-glass rounded-xl px-3.5 py-2 text-xs font-mono text-gray-200 min-h-[38px]" />
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between text-[11px] font-mono text-gray-300 font-bold px-1">
+                            <span>Tarefas do Modelo:</span>
+                            <span id="todo-template-blocks-count" class="text-emerald-400">0 tarefas</span>
+                        </div>
+                        <div id="todo-template-blocks-list" class="space-y-2 max-h-[220px] overflow-y-auto pr-1"></div>
+                    </div>
+
+                    <div class="flex justify-end pt-2">
+                        <button type="button" onclick="window.ControlEngine.saveEditingTodoTemplateChanges()" class="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-mono font-bold text-xs uppercase tracking-wider rounded-xl transition shadow-lg cursor-pointer active:scale-95">
+                            💾 Salvar Alterações no Modelo
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAINEL 2: CARGA & INTELIGÊNCIA -->
+            <div id="todo-cfg-panel-analytics" class="flex-1 overflow-y-auto py-4 space-y-4 pr-1 hidden">
+                <div id="todo-analytics-content" class="space-y-4"></div>
+            </div>
+
+            <!-- PAINEL 3: AÇÕES EM MASSA -->
+            <div id="todo-cfg-panel-bulk" class="flex-1 overflow-y-auto py-4 space-y-4 pr-1 hidden">
+                <div class="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-3">
+                    <span class="text-xs font-mono font-bold text-white block uppercase">⏱️ Deslocamento Temporal em Massa</span>
+                    <p class="text-[11px] font-mono text-gray-400">Empurre ou adiante os horários de todas as tarefas da semana em lote:</p>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <button type="button" onclick="window.ControlEngine.shiftScheduleTimes('todos', -60)" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-mono cursor-pointer">-1h</button>
+                        <button type="button" onclick="window.ControlEngine.shiftScheduleTimes('todos', -30)" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-mono cursor-pointer">-30min</button>
+                        <button type="button" onclick="window.ControlEngine.shiftScheduleTimes('todos', -15)" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-mono cursor-pointer">-15min</button>
+                        <button type="button" onclick="window.ControlEngine.shiftScheduleTimes('todos', 15)" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-mono cursor-pointer">+15min</button>
+                        <button type="button" onclick="window.ControlEngine.shiftScheduleTimes('todos', 30)" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-mono cursor-pointer">+30min</button>
+                        <button type="button" onclick="window.ControlEngine.shiftScheduleTimes('todos', 60)" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-mono cursor-pointer">+1h</button>
+                    </div>
+                </div>
+
+                <div class="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-3">
+                    <span class="text-xs font-mono font-bold text-white block uppercase">🧹 Limpeza e Organização Rápida</span>
+                    <div class="flex items-center gap-2.5 flex-wrap">
+                        <button type="button" onclick="window.ControlEngine.clearCompletedTodos()" class="px-3.5 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-mono font-bold transition cursor-pointer flex items-center gap-1.5">
+                            <span>🧹</span> <span>Limpar Tarefas Concluídas</span>
+                        </button>
+                        <button type="button" onclick="window.ControlEngine.postponePendingTodosToTomorrow()" class="px-3.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-mono font-bold transition cursor-pointer flex items-center gap-1.5">
+                            <span>⏩</span> <span>Adiar Pendentes para Amanhã (+24h)</span>
+                        </button>
+                        <button type="button" onclick="window.ControlEngine.resetSectionWeek('todos')" class="px-3.5 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-mono font-bold transition cursor-pointer flex items-center gap-1.5">
+                            <span>🗑️</span> <span>Resetar Tarefas da Semana</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-3">
+                    <span class="text-xs font-mono font-bold text-white block uppercase">📦 Backup & Portabilidade JSON</span>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="window.ControlEngine.exportTemplatesToClipboard('todos')" class="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-mono font-bold transition cursor-pointer flex items-center gap-1.5">
+                            <span>📤</span> <span>Copiar JSON dos Modelos</span>
+                        </button>
+                        <button type="button" onclick="window.ControlEngine.promptImportTemplates('todos')" class="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-sky-300 text-xs font-mono font-bold transition cursor-pointer flex items-center gap-1.5">
+                            <span>📥</span> <span>Importar Modelos de JSON</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAINEL 4: CORES & ESTILO -->
+            <div id="todo-cfg-panel-colors" class="flex-1 overflow-y-auto py-4 space-y-4 pr-1 hidden">
+                <div id="todo-universal-color-picker" class="space-y-4"></div>
+            </div>
+
+            <div class="pt-3 border-t border-white/15 flex justify-end items-center gap-2 shrink-0">
+                <button type="button" onclick="window.ControlEngine.closeTodoConfigModal()" class="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-mono font-bold text-xs uppercase tracking-wider rounded-xl transition shadow-lg cursor-pointer active:scale-95">
+                    ✓ Concluído
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 4.0.0-B. CONTROL: REMINDER SETTINGS & SEMANAS MODELO CONFIG MODAL (4 ABAS HIPER-INTELIGENTES) -->
+    <div id="reminder-config-modal" class="ultra-liquid-glass-backdrop fixed inset-0 z-[110] flex items-center justify-center hidden p-3 sm:p-6 transition-opacity duration-300 overflow-y-auto" onclick="if(event.target===this) window.ControlEngine.closeReminderConfigModal()">
+        <div class="ultra-liquid-glass-modal p-5 sm:p-7 rounded-2xl sm:rounded-3xl max-w-3xl w-full max-h-[92dvh] flex flex-col relative overflow-hidden m-auto" onclick="event.stopPropagation()">
+            
+            <div class="flex items-center justify-between pb-3.5 border-b border-white/15 shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-2xl">⚙️</span>
+                    <div>
+                        <h3 class="text-lg font-bold text-white tracking-tight">Painel de Gestão: Lembretes & Alarmes</h3>
+                        <p class="text-[10px] font-mono text-gray-300">Semanas Modelo, Matriz de Alertas, Ações em Massa & Cores</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="window.ControlEngine.testHeroicAlarm()" class="px-3 py-1.5 rounded-xl bg-pink-500/20 hover:bg-pink-500/35 border border-pink-500/40 text-pink-300 font-mono text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer active:scale-95 shadow" title="Testar o Alarme Heroico em tela cheia com som">
+                        <span>⚡</span> <span>Testar Alarme</span>
+                    </button>
+                    <button onclick="window.ControlEngine.closeReminderConfigModal()" class="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-gray-300 text-base font-mono flex items-center justify-center cursor-pointer transition">✕</button>
+                </div>
+            </div>
+
+            <!-- 4 Abas do Modal de Configuração -->
+            <div class="flex items-center gap-1.5 pt-3 border-b border-white/10 shrink-0 pb-2 overflow-x-auto hide-scrollbar">
+                <button type="button" id="tab-reminder-cfg-templates" onclick="window.ControlEngine.setReminderConfigTab('templates')" class="px-3.5 py-2 rounded-xl font-mono text-xs font-bold transition cursor-pointer flex items-center gap-1.5 bg-purple-600 text-white shadow-md ring-1 ring-white/30 whitespace-nowrap">
+                    <span>📋</span> <span>Semanas Modelo</span>
+                </button>
+                <button type="button" id="tab-reminder-cfg-analytics" onclick="window.ControlEngine.setReminderConfigTab('analytics')" class="px-3.5 py-2 rounded-xl font-mono text-xs font-bold transition cursor-pointer flex items-center gap-1.5 bg-white/10 text-gray-300 hover:bg-white/20 whitespace-nowrap">
+                    <span>📊</span> <span>Matriz & Alertas</span>
+                </button>
+                <button type="button" id="tab-reminder-cfg-bulk" onclick="window.ControlEngine.setReminderConfigTab('bulk')" class="px-3.5 py-2 rounded-xl font-mono text-xs font-bold transition cursor-pointer flex items-center gap-1.5 bg-white/10 text-gray-300 hover:bg-white/20 whitespace-nowrap">
+                    <span>⚡</span> <span>Ações em Massa</span>
+                </button>
+                <button type="button" id="tab-reminder-cfg-colors" onclick="window.ControlEngine.setReminderConfigTab('colors')" class="px-3.5 py-2 rounded-xl font-mono text-xs font-bold transition cursor-pointer flex items-center gap-1.5 bg-white/10 text-gray-300 hover:bg-white/20 whitespace-nowrap">
+                    <span>🎨</span> <span>Cores & Estilo</span>
+                </button>
+            </div>
+
+            <!-- PAINEL 1: SEMANAS MODELO -->
+            <div id="reminder-cfg-panel-templates" class="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <label class="text-[11px] font-mono text-gray-200 uppercase font-bold">Modelos Salvos:</label>
+                        <button type="button" onclick="window.ControlEngine.addNewCustomReminderTemplate()" class="px-2.5 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500/35 text-purple-300 border border-purple-500/30 text-[10px] font-mono font-bold transition cursor-pointer">
+                            ＋ Novo Modelo
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2" id="reminder-cfg-templates-selector"></div>
+                </div>
+
+                <div class="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-between flex-wrap gap-2">
+                    <div class="space-y-0.5">
+                        <span class="text-xs font-mono font-bold text-white block" id="reminder-cfg-selected-model-title">Modelo Selecionado</span>
+                        <span class="text-[10px] font-mono text-gray-400 block truncate max-w-[280px]" id="reminder-cfg-selected-model-desc">Descrição breve</span>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <button type="button" onclick="window.ControlEngine.applySelectedReminderTemplateFromConfig()" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 text-white font-mono font-bold text-xs shadow-md transition cursor-pointer active:scale-95 flex items-center gap-1.5" title="Pré-preencher a semana atual">
+                            <span>⚡</span> <span>Aplicar na Semana</span>
+                        </button>
+                        <button type="button" onclick="window.ControlEngine.openCopyWeekAsTemplateModal('reminders')" class="px-3 py-1.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/35 text-sky-300 border border-sky-500/30 font-mono text-xs transition cursor-pointer flex items-center gap-1.5" title="Capturar a semana atual">
+                            <span>📥</span> <span>Copiar da Semana</span>
+                        </button>
+                        <button type="button" onclick="window.ControlEngine.duplicateCurrentReminderTemplate()" class="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-gray-300 font-mono text-xs transition cursor-pointer" title="Duplicar este modelo">
+                            <span>📑</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/10 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-mono font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                            <span>✏️</span> <span>Editor do Modelo</span>
+                        </span>
+                        <button type="button" onclick="window.ControlEngine.addBlockToEditingReminderTemplate()" class="px-2.5 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500/35 text-purple-300 border border-purple-500/30 text-xs font-mono font-bold transition cursor-pointer">
+                            ＋ Novo Lembrete
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Nome do Modelo</label>
+                            <input type="text" id="reminder-template-edit-name" class="w-full input-glass rounded-xl px-3.5 py-2 text-xs font-mono text-white min-h-[38px]" />
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Descrição</label>
+                            <input type="text" id="reminder-template-edit-desc" class="w-full input-glass rounded-xl px-3.5 py-2 text-xs font-mono text-gray-200 min-h-[38px]" />
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between text-[11px] font-mono text-gray-300 font-bold px-1">
+                            <span>Lembretes do Modelo:</span>
+                            <span id="reminder-template-blocks-count" class="text-purple-400">0 lembretes</span>
+                        </div>
+                        <div id="reminder-template-blocks-list" class="space-y-2 max-h-[220px] overflow-y-auto pr-1"></div>
+                    </div>
+
+                    <div class="flex justify-end pt-2">
+                        <button type="button" onclick="window.ControlEngine.saveEditingReminderTemplateChanges()" class="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 text-white font-mono font-bold text-xs uppercase tracking-wider rounded-xl transition shadow-lg cursor-pointer active:scale-95">
+                            💾 Salvar Alterações no Modelo
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAINEL 2: MATRIZ & ALERTAS -->
+            <div id="reminder-cfg-panel-analytics" class="flex-1 overflow-y-auto py-4 space-y-4 pr-1 hidden">
+                <div id="reminder-analytics-content" class="space-y-4"></div>
+            </div>
+
+            <!-- PAINEL 3: AÇÕES EM MASSA -->
+            <div id="reminder-cfg-panel-bulk" class="flex-1 overflow-y-auto py-4 space-y-4 pr-1 hidden">
+                <div class="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-3">
+                    <span class="text-xs font-mono font-bold text-white block uppercase">⏱️ Deslocamento Temporal em Massa</span>
+                    <p class="text-[11px] font-mono text-gray-400">Ajuste os horários de todos os lembretes da semana simultaneamente:</p>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <button type="button" onclick="window.ControlEngine.shiftScheduleTimes('reminders', -60)" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-mono cursor-pointer">-1h</button>
+                        <button type="button" onclick="window.ControlEngine.shiftScheduleTimes('reminders', -30)" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-mono cursor-pointer">-30min</button>
+                        <button type="button" onclick="window.ControlEngine.shiftScheduleTimes('reminders', -15)" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-mono cursor-pointer">-15min</button>
+                        <button type="button" onclick="window.ControlEngine.shiftScheduleTimes('reminders', 15)" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-mono cursor-pointer">+15min</button>
+                        <button type="button" onclick="window.ControlEngine.shiftScheduleTimes('reminders', 30)" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-mono cursor-pointer">+30min</button>
+                        <button type="button" onclick="window.ControlEngine.shiftScheduleTimes('reminders', 60)" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-mono cursor-pointer">+1h</button>
+                    </div>
+                </div>
+
+                <div class="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-3">
+                    <span class="text-xs font-mono font-bold text-white block uppercase">🔔 Gerenciamento de Sons & Limpeza</span>
+                    <div class="flex items-center gap-2.5 flex-wrap">
+                        <button type="button" onclick="window.ControlEngine.toggleAllRemindersSound(true)" class="px-3.5 py-2 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 text-xs font-mono font-bold transition cursor-pointer flex items-center gap-1.5">
+                            <span>🔊</span> <span>Ativar Som em Todos</span>
+                        </button>
+                        <button type="button" onclick="window.ControlEngine.toggleAllRemindersSound(false)" class="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-gray-300 text-xs font-mono font-bold transition cursor-pointer flex items-center gap-1.5">
+                            <span>🔇</span> <span>Silenciar Todos</span>
+                        </button>
+                        <button type="button" onclick="window.ControlEngine.resetSectionWeek('reminders')" class="px-3.5 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-mono font-bold transition cursor-pointer flex items-center gap-1.5">
+                            <span>🗑️</span> <span>Resetar Lembretes da Semana</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-3">
+                    <span class="text-xs font-mono font-bold text-white block uppercase">📦 Backup & Portabilidade JSON</span>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="window.ControlEngine.exportTemplatesToClipboard('reminders')" class="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-mono font-bold transition cursor-pointer flex items-center gap-1.5">
+                            <span>📤</span> <span>Copiar JSON dos Modelos</span>
+                        </button>
+                        <button type="button" onclick="window.ControlEngine.promptImportTemplates('reminders')" class="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-sky-300 text-xs font-mono font-bold transition cursor-pointer flex items-center gap-1.5">
+                            <span>📥</span> <span>Importar Modelos de JSON</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAINEL 4: CORES & ESTILO -->
+            <div id="reminder-cfg-panel-colors" class="flex-1 overflow-y-auto py-4 space-y-4 pr-1 hidden">
+                <div id="reminder-universal-color-picker" class="space-y-4"></div>
+            </div>
+
+            <div class="pt-3 border-t border-white/15 flex justify-end items-center gap-2 shrink-0">
+                <button type="button" onclick="window.ControlEngine.closeReminderConfigModal()" class="px-5 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 text-white font-mono font-bold text-xs uppercase tracking-wider rounded-xl transition shadow-lg cursor-pointer active:scale-95">
+                    ✓ Concluído
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 4.0.1. CONTROL: STUDY SETTINGS & SEMANAS MODELO CONFIG MODAL (4 ABAS HIPER-INTELIGENTES) -->
+    <div id="study-config-modal" class="ultra-liquid-glass-backdrop fixed inset-0 z-[110] flex items-center justify-center hidden p-3 sm:p-6 transition-opacity duration-300 overflow-y-auto" onclick="if(event.target===this) window.ControlEngine.closeStudyConfigModal()">
+        <div class="ultra-liquid-glass-modal p-5 sm:p-7 rounded-2xl sm:rounded-3xl max-w-3xl w-full max-h-[92dvh] flex flex-col relative overflow-hidden m-auto" onclick="event.stopPropagation()">
+            
+            <div class="flex items-center justify-between pb-3.5 border-b border-white/15 shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-2xl">⚙️</span>
+                    <div>
+                        <h3 class="text-lg font-bold text-white tracking-tight">Painel de Gestão: Rotina de Estudos</h3>
+                        <p class="text-[10px] font-mono text-gray-300">Semanas Modelo, Carga Horária, Ações em Massa, Google Agenda & Cores</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="window.ControlEngine.testStudyAlarm()" class="px-3 py-1.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/35 border border-sky-500/40 text-sky-300 font-mono text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer active:scale-95 shadow" title="Testar Alarme de Estudo em tela cheia com Som e Envio de E-mail">
+                        <span>⚡</span> <span>Testar Alarme & Email</span>
+                    </button>
+                    <button onclick="window.ControlEngine.closeStudyConfigModal()" class="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-gray-300 text-base font-mono flex items-center justify-center cursor-pointer transition">✕</button>
+                </div>
+            </div>
+
+            <!-- 4 Abas do Modal de Configuração de Estudos -->
+            <div class="flex items-center gap-1.5 pt-3 border-b border-white/10 shrink-0 pb-2 overflow-x-auto hide-scrollbar">
+                <button type="button" id="tab-study-cfg-templates" onclick="window.ControlEngine.setStudyConfigTab('templates')" class="px-3.5 py-2 rounded-xl font-mono text-xs font-bold transition cursor-pointer flex items-center gap-1.5 bg-sky-600 text-white shadow-md ring-1 ring-white/30 whitespace-nowrap">
+                    <span>📋</span> <span>Semanas Modelo</span>
+                </button>
+                <button type="button" id="tab-study-cfg-analytics" onclick="window.ControlEngine.setStudyConfigTab('analytics')" class="px-3.5 py-2 rounded-xl font-mono text-xs font-bold transition cursor-pointer flex items-center gap-1.5 bg-white/10 text-gray-300 hover:bg-white/20 whitespace-nowrap">
+                    <span>📊</span> <span>Carga Horária & IA</span>
+                </button>
+                <button type="button" id="tab-study-cfg-bulk" onclick="window.ControlEngine.setStudyConfigTab('bulk')" class="px-3.5 py-2 rounded-xl font-mono text-xs font-bold transition cursor-pointer flex items-center gap-1.5 bg-white/10 text-gray-300 hover:bg-white/20 whitespace-nowrap">
+                    <span>⚡</span> <span>Ações em Massa</span>
+                </button>
+                <button type="button" id="tab-study-cfg-gcal" onclick="window.ControlEngine.setStudyConfigTab('gcal')" class="px-3.5 py-2 rounded-xl font-mono text-xs font-bold transition cursor-pointer flex items-center gap-1.5 bg-white/10 text-gray-300 hover:bg-white/20 whitespace-nowrap">
+                    <span>📅</span> <span>Google Agenda & Cores</span>
+                </button>
+            </div>
+
+            <!-- PAINEL 1: SEMANAS MODELO -->
+            <div id="study-cfg-panel-templates" class="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <label class="text-[11px] font-mono text-gray-200 uppercase font-bold">Modelos Salvos:</label>
+                        <button type="button" onclick="window.ControlEngine.addNewCustomStudyTemplate()" class="px-2.5 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/35 text-sky-300 border border-sky-500/30 text-[10px] font-mono font-bold transition cursor-pointer">
+                            ＋ Novo Modelo
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2" id="study-cfg-templates-selector"></div>
+                </div>
+
+                <div class="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-between flex-wrap gap-2">
+                    <div class="space-y-0.5">
+                        <span class="text-xs font-mono font-bold text-white block" id="study-cfg-selected-model-title">Modelo Selecionado</span>
+                        <span class="text-[10px] font-mono text-gray-400 block truncate max-w-[280px]" id="study-cfg-selected-model-desc">Descrição breve</span>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <button type="button" onclick="window.ControlEngine.applySelectedTemplateFromConfig()" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-mono font-bold text-xs shadow-md transition cursor-pointer active:scale-95 flex items-center gap-1.5" title="Pré-preencher toda a semana atual com este modelo">
+                            <span>⚡</span> <span>Aplicar na Semana</span>
+                        </button>
+                        <button type="button" onclick="window.ControlEngine.openCopyWeekAsTemplateModal('studies')" class="px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/35 text-emerald-300 border border-emerald-500/30 font-mono text-xs transition cursor-pointer flex items-center gap-1.5" title="Substituir matérias deste modelo pela semana atual">
+                            <span>📥</span> <span>Copiar da Semana</span>
+                        </button>
+                        <button type="button" onclick="window.ControlEngine.duplicateCurrentStudyTemplate()" class="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-gray-300 font-mono text-xs transition cursor-pointer" title="Duplicar este modelo">
+                            <span>📑</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/10 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-mono font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                            <span>✏️</span> <span>Editor do Modelo</span>
+                        </span>
+                        <button type="button" onclick="window.ControlEngine.addBlockToEditingTemplate()" class="px-2.5 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/35 text-sky-300 border border-sky-500/30 text-xs font-mono font-bold transition cursor-pointer">
+                            ＋ Nova Matéria
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Nome do Modelo</label>
+                            <input type="text" id="study-template-edit-name" class="w-full input-glass rounded-xl px-3.5 py-2 text-xs font-mono text-white min-h-[38px]" />
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-mono text-gray-200 uppercase mb-1 font-bold">Descrição</label>
+                            <input type="text" id="study-template-edit-desc" class="w-full input-glass rounded-xl px-3.5 py-2 text-xs font-mono text-gray-200 min-h-[38px]" />
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between text-[11px] font-mono text-gray-300 font-bold px-1">
+                            <span>Matérias Cadastradas:</span>
+                            <span id="study-template-blocks-count" class="text-sky-400">0 matérias</span>
+                        </div>
+                        <div id="study-template-blocks-list" class="space-y-2 max-h-[220px] overflow-y-auto pr-1"></div>
+                    </div>
+
+                    <div class="flex justify-end pt-2">
+                        <button type="button" onclick="window.ControlEngine.saveEditingTemplateChanges()" class="px-4 py-2 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-mono font-bold text-xs uppercase tracking-wider rounded-xl transition shadow-lg cursor-pointer active:scale-95">
+                            💾 Salvar Alterações no Modelo
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAINEL 2: CARGA HORÁRIA & INTELIGÊNCIA -->
+            <div id="study-cfg-panel-analytics" class="flex-1 overflow-y-auto py-4 space-y-4 pr-1 hidden">
+                <div id="study-analytics-content" class="space-y-4"></div>
+            </div>
+
+            <!-- PAINEL 3: AÇÕES EM MASSA -->
+            <div id="study-cfg-panel-bulk" class="flex-1 overflow-y-auto py-4 space-y-4 pr-1 hidden">
+                <div class="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-3">
+                    <span class="text-xs font-mono font-bold text-white block uppercase">⏱️ Deslocamento Temporal em Massa</span>
+                    <p class="text-[11px] font-mono text-gray-400">Adie ou adiante os horários de início e término de todas as disciplinas da semana:</p>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <button type="button" onclick="window.ControlEngine.shiftScheduleTimes('studies', -60)" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-mono cursor-pointer">-1h</button>
+                        <button type="button" onclick="window.ControlEngine.shiftScheduleTimes('studies', -30)" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-mono cursor-pointer">-30min</button>
+                        <button type="button" onclick="window.ControlEngine.shiftScheduleTimes('studies', -15)" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-mono cursor-pointer">-15min</button>
+                        <button type="button" onclick="window.ControlEngine.shiftScheduleTimes('studies', 15)" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-mono cursor-pointer">+15min</button>
+                        <button type="button" onclick="window.ControlEngine.shiftScheduleTimes('studies', 30)" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-mono cursor-pointer">+30min</button>
+                        <button type="button" onclick="window.ControlEngine.shiftScheduleTimes('studies', 60)" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-mono cursor-pointer">+1h</button>
+                    </div>
+                </div>
+
+                <div class="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-3">
+                    <span class="text-xs font-mono font-bold text-white block uppercase">🧹 Limpeza e Reset</span>
+                    <button type="button" onclick="window.ControlEngine.resetSectionWeek('studies')" class="px-3.5 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-mono font-bold transition cursor-pointer flex items-center gap-1.5">
+                        <span>🗑️</span> <span>Limpar Todas as Matérias da Semana</span>
+                    </button>
+                </div>
+
+                <div class="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-3">
+                    <span class="text-xs font-mono font-bold text-white block uppercase">📦 Backup & Portabilidade JSON</span>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="window.ControlEngine.exportTemplatesToClipboard('studies')" class="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-mono font-bold transition cursor-pointer flex items-center gap-1.5">
+                            <span>📤</span> <span>Copiar JSON dos Modelos</span>
+                        </button>
+                        <button type="button" onclick="window.ControlEngine.promptImportTemplates('studies')" class="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-sky-300 text-xs font-mono font-bold transition cursor-pointer flex items-center gap-1.5">
+                            <span>📥</span> <span>Importar Modelos de JSON</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAINEL 4: GOOGLE AGENDA & CORES -->
+            <div id="study-cfg-panel-gcal" class="flex-1 overflow-y-auto py-4 space-y-4 pr-1 hidden">
+                <div class="p-3.5 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-start gap-3 text-xs font-mono text-gray-200">
+                    <span class="text-xl">📌</span>
+                    <div>
+                        <span class="text-white font-bold block mb-1">Regra de Prefixo no Google Agenda:</span>
+                        <span>Todos os eventos desta rotina recebem automaticamente o prefixo <strong class="text-purple-300 bg-purple-950/70 px-1.5 py-0.5 rounded border border-purple-500/40">STUD: [Título]</strong>.</span>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <label class="block text-[11px] font-mono text-gray-200 uppercase font-bold">
+                            Cor Oficial do Google Agenda (API):
+                        </label>
+                        <span id="study-active-color-name" class="text-xs font-mono text-purple-300 font-bold">Flamingo</span>
+                    </div>
+                    <div id="study-google-color-palette" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
+                </div>
+
+                <div class="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 space-y-3">
+                    <label class="block text-[11px] font-mono text-gray-200 uppercase font-bold">
+                        🎨 Cor de Destaque da Sessão no Personal OS:
+                    </label>
+                    <div id="study-universal-color-picker"></div>
+                </div>
+
+                <div class="p-3 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-between">
+                    <div>
+                        <label class="text-xs font-mono text-white font-bold block">Sincronização Automática</label>
+                        <span class="text-[10px] font-mono text-gray-400">Enviar ao Google Agenda ao salvar ou editar</span>
+                    </div>
+                    <input type="checkbox" id="study-auto-sync-checkbox" onchange="window.ControlEngine.toggleStudyAutoSync(this.checked)" class="rounded border-white/20 text-purple-500 focus:ring-purple-400 bg-white/10 w-5 h-5 cursor-pointer" />
+                </div>
+
+                <div class="p-3 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-between text-xs font-mono">
+                    <span class="text-gray-300">Status Google Agenda:</span>
+                    <div id="study-gcal-status-badge"></div>
+                </div>
+            </div>
+
+            <div class="pt-3 border-t border-white/15 flex justify-end items-center gap-2 shrink-0">
+                <button type="button" onclick="window.ControlEngine.closeStudyConfigModal()" class="px-5 py-2.5 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-mono font-bold text-xs uppercase tracking-wider rounded-xl transition shadow-lg cursor-pointer active:scale-95">
+                    ✓ Concluído
+                </button>
+            </div>
+
+        </div>
+    </div>
+<!-- SISTEMA DE NOTIFICAÇÃO: HEROIC FULLSCREEN NEON PARALLAX CHROMA OVERLAY -->
+    <div id="heroic-alarm-overlay" class="fixed inset-0 z-[200] flex items-center justify-center bg-black/65 backdrop-blur-2xl hidden p-4 transition-all duration-500 overflow-hidden cursor-pointer select-none" onclick="window.ControlEngine.stopHeroicAlarm()">
+        <div class="absolute -top-32 -left-32 w-96 h-96 rounded-full blur-[100px] pointer-events-none opacity-50 bg-gradient-to-tr from-purple-600 via-pink-600 to-rose-600 animate-pulse"></div>
+        <div class="absolute -bottom-32 -right-32 w-96 h-96 rounded-full blur-[100px] pointer-events-none opacity-50 bg-gradient-to-tr from-cyan-600 via-sky-600 to-indigo-600 animate-pulse"></div>
+
+        <div class="relative p-8 sm:p-12 rounded-3xl sm:rounded-[2.5rem] max-w-lg w-full flex flex-col items-center text-center border border-white/30 shadow-[0_0_90px_rgba(236,72,153,0.35)] overflow-hidden pointer-events-auto transition-transform duration-300 hover:scale-[1.02]" style="background: rgba(18, 18, 26, 0.65); backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);" onclick="window.ControlEngine.stopHeroicAlarm()">
+            <div id="alarm-overlay-ring" class="relative w-28 h-28 sm:w-32 sm:h-32 rounded-full border-4 flex items-center justify-center mb-6 transition-all duration-500" style="border-color: #ec4899; box-shadow: 0 0 35px #ec4899, inset 0 0 25px #ec489988;">
+                <span id="alarm-overlay-icon" class="text-5xl sm:text-6xl animate-bounce">⚡</span>
+            </div>
+
+            <span id="alarm-overlay-subtitle" class="text-[11px] sm:text-xs font-mono font-bold uppercase tracking-widest text-pink-300 bg-pink-500/20 px-3.5 py-1 rounded-full border border-pink-500/40 mb-3">
+                ALARME ATIVO
+            </span>
+
+            <h2 id="alarm-overlay-title" class="text-2xl sm:text-3xl font-black text-white tracking-tight mb-2 leading-tight">
+                Notificação do Sistema
+            </h2>
+
+            <p id="alarm-overlay-details" class="text-xs sm:text-sm font-sans text-gray-200 leading-relaxed mb-8 max-w-sm">
+                Horário programado atingido.
+            </p>
+
+            <div class="w-full py-3.5 px-6 rounded-2xl bg-white text-black font-mono font-bold text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-[0_0_30px_rgba(255,255,255,0.4)] animate-pulse">
+                <span>🛑</span>
+                <span>TOQUE EM QUALQUER LUGAR PARA INTERROMPER</span>
+            </div>
+
+            <div class="mt-4 text-[10px] font-mono text-gray-400 flex items-center gap-2">
+                <span>🔊 Áudio Amplificado em Loop</span>
+                <span>&bull;</span>
+                <span>M.C.P Personal OS</span>
+            </div>
+        </div>
+    </div>
+    <!-- Widget de Chat Apple Glassmorphism (AI Tutor) -->
+    <script src="js/chat-widget.js"></script>
+</body>
+</html>

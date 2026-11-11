@@ -1,0 +1,131 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "outputDirectory": "public",
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "rewrites": [
+    {
+      "source": "/admin",
+      "destination": "/admin.html"
+    },
+    {
+      "source": "/chat",
+      "destination": "/chat.html"
+    },
+    {
+      "source": "/tutor",
+      "destination": "/chat.html"
+    },
+    {
+      "source": "/calendar",
+      "destination": "/calendar.html"
+    },
+    {
+      "source": "/diary",
+      "destination": "/diary.html"
+    },
+    {
+      "source": "/books",
+      "destination": "/diary.html"
+    },
+    {
+      "source": "/journal",
+      "destination": "/diary.html"
+    },
+    {
+      "source": "/oauth",
+      "destination": "/oauth.html"
+    },
+    {
+      "source": "/pomodoro",
+      "destination": "/pomodoro.html"
+    },
+    {
+      "source": "/time",
+      "destination": "/pomodoro.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/sw.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate, max-age=0"
+        },
+        {
+          "key": "Service-Worker-Allowed",
+          "value": "/"
+        }
+      ]
+    },
+    {
+      "source": "/js/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
+      ]
+    },
+    {
+      "source": "/components/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000; includeSubDomains; preload"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(self), geolocation=(), payment=(), usb=()"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self' 'unsafe-inline' 'unsafe-eval' blob: data: https:; img-src 'self' data: blob: https://images.unsplash.com https://*.supabase.co https://*.supabase.in https://avatars.githubusercontent.com https://ik.imagekit.io https://*.imagekit.io; media-src 'self' data: blob: https://*.supabase.co https://*.supabase.in https://images.unsplash.com https://ik.imagekit.io https://*.imagekit.io; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://images.unsplash.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://www.googleapis.com https://googleapis.com https://accounts.google.com https://cdn.tailwindcss.com https://api.open-meteo.com https://upload.imagekit.io https://ik.imagekit.io https://*.imagekit.io https://api.notion.com; font-src 'self' data: https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.tailwindcss.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://accounts.google.com https://apis.google.com; frame-src 'self' blob: data: https://accounts.google.com; frame-ancestors 'self';"
+        }
+      ]
+    },
+    {
+      "source": "/((?!js/|components/|sw.js).*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    }
+  ]
+}

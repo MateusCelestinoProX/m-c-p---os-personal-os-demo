@@ -1,0 +1,43 @@
+# Controle de versão
+.git
+.gitignore
+
+# Variáveis de ambiente e segredos — NUNCA deployar
+.env
+.env.*
+credentials.json
+token.json
+client_secret*.json
+
+# Backups e arquivos temporários
+*.bak
+*.tmp
+*.log
+
+# Builds nativos e binários pesados (NÃO deployar na Vercel)
+src-tauri/
+mac-native/
+imagekit-media-backup/
+graphify-out/
+node_modules/
+*.apk
+*.apk.idsig
+*.app
+*.zip
+*.keystore
+release.keystore
+translucid-open-code/
+translucid-omniroute/
+
+# Desenvolvimento local & agentes
+server.py
+scratch/
+gemini.md
+new backgrounds/
+README.md
+rules/
+structure/
+
+# Arquivos de sistema
+.DS_Store
+Thumbs.db

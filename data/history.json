@@ -1,0 +1,16 @@
+[
+  {
+    "id": "658b08dd-c365-438e-8553-e0dba911d3bc",
+    "mode": "focus",
+    "action": "interrupted_by_break",
+    "duration_ms": 15000,
+    "duration_formatted": "0m",
+    "notes": "Sessão de foco interrompida manualmente pelo botão Break",
+    "metadata": {
+      "round": 1,
+      "task_name": "Sessão de foco interrompida manualmente pelo botão Break",
+      "user_id": "user_w7qb28w"
+    },
+    "created_at": "2026-09-12T15:45:26.267Z"
+  }
+]

@@ -1,0 +1,13 @@
+{
+  "name": "translucid-omniroute",
+  "version": "1.0.0",
+  "description": "Transform OmniRoute Desktop into a pure Crystal Liquid Glass aesthetic with high text contrast on macOS",
+  "type": "commonjs",
+  "scripts": {
+    "apply": "./apply-translucid-omniroute.sh",
+    "restore": "./restore-original-omniroute.sh"
+  },
+  "keywords": ["omniroute", "glassmorphism", "translucent", "liquid-glass", "electron", "macos"],
+  "author": "Mateus Celestino",
+  "license": "MIT"
+}

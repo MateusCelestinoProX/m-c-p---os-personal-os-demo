@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#05070c">
+  <title>M.C.P PERSONAL OS — Pomodoro 2 & Foco</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/brand/icon.png">
+  <link rel="apple-touch-icon" href="assets/brand/icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="pomodoro.css">
+  <script>
+    (function() {
+      // 1. Sincronização Síncrona de Insets Samsung Galaxy S22 Ultra
+      function syncAndroidInsets() {
+        try {
+          if (window.AndroidBridge && typeof window.AndroidBridge.getSafeTop === "function") {
+            const top = window.AndroidBridge.getSafeTop();
+            const bottom = window.AndroidBridge.getSafeBottom();
+            if (top && top >= 40) document.documentElement.style.setProperty("--safe-top", top + "px");
+            if (bottom && bottom >= 16) document.documentElement.style.setProperty("--safe-bottom", bottom + "px");
+          }
+        } catch(e) {}
+      }
+      syncAndroidInsets();
+      window.addEventListener("androidbridge:ready", syncAndroidInsets);
+      document.addEventListener("DOMContentLoaded", syncAndroidInsets);
+
+      // 2. Sistema de Cookie Gêmeo & Anti-Flicker Síncrono
+      try {
+        const hasPersonalToken = localStorage.getItem("personal_os_local_token");
+        const hasTimeToken = localStorage.getItem("time_os_auth_token");
+        const hasSession = localStorage.getItem("mcp_auth_session");
+        const hasCookie = document.cookie.indexOf("mcp_auth_session=1") !== -1 || document.cookie.indexOf("personal_os_local_token") !== -1 || document.cookie.indexOf("time_os_auth_token") !== -1;
+        const hasSupabase = Object.keys(localStorage).some(k => k.startsWith("sb-") && k.endsWith("-auth-token") && localStorage.getItem(k));
+        const isAuth = Boolean(hasPersonalToken || hasTimeToken || hasSession || hasCookie || hasSupabase);
+        if (isAuth) {
+          const token = hasPersonalToken || hasTimeToken || ("mcp_twin_jwt_" + Date.now());
+          if (!hasPersonalToken) localStorage.setItem("personal_os_local_token", token);
+          if (!hasTimeToken) localStorage.setItem("time_os_auth_token", token);
+          if (!hasSession) localStorage.setItem("mcp_auth_session", JSON.stringify({ authenticated: true, role: "owner", email: "mateus.celestino@demo.os" }));
+        }
+      } catch(e) {}
+    })();
+  </script>
+</head>
+<body>
+
+
+
+  <!-- =========================================================
+       UNIVERSAL BACKGROUND VIEWPORT (Root Fixed Layer)
+       ========================================================= -->
+  <div class="bg-viewport" id="bg-viewport">
+    <div class="bg-layer-group" id="bg-group-custom">
+      <div class="sl-frame on" id="bg-frame-a"></div>
+      <div class="sl-frame" id="bg-frame-b"></div>
+    </div>
+    <div id="bg-webgl-container"></div>
+    <div id="ambient-veil"></div>
+    <div id="vignette-layer"></div>
+  </div>
+
+  <!-- Container Principal do App (Z-Index Elevado, Perfeitamente Centralizado) -->
+  <div class="app-viewport">
+
+    <!-- Visualização Central: Timer Pomatez Minimalista Grande e Imersivo -->
+    <main class="main-timer-stage" id="main-stage">
+      
+      <!-- Seletor de Modo em Pílula de Vidro Translúcida -->
+      <nav class="mode-selector-glass" role="tablist">
+        <button class="mode-pill active" data-mode="focus" id="mode-btn-focus">Foco</button>
+        <button class="mode-pill" data-mode="shortBreak" id="mode-btn-short">Pausa Curta</button>
+        <button class="mode-pill" data-mode="longBreak" id="mode-btn-long">Pausa Longa</button>
+      </nav>
+
+      <!-- Cartão Principal do Cronômetro (Centralizado e Levemente Maior) -->
+      <div class="timer-dial-card">
+        <div class="dial-container">
+          <svg class="progress-ring" viewBox="0 0 340 340">
+            <defs>
+              <!-- Degradê Vermelho Neon Blood Sanguine Red -->
+              <linearGradient id="ring-gradient-focus" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#ff1037" />
+                <stop offset="100%" stop-color="#880012" />
+              </linearGradient>
+              <linearGradient id="ring-gradient-break" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#fb923c" />
+                <stop offset="100%" stop-color="#ea580c" />
+              </linearGradient>
+              <linearGradient id="ring-gradient-long" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#34d399" />
+                <stop offset="100%" stop-color="#059669" />
+              </linearGradient>
+            </defs>
+            <circle class="ring-track" cx="170" cy="170" r="150" />
+            <circle class="ring-progress" id="ring-progress" cx="170" cy="170" r="150" />
+          </svg>
+
+          <div class="dial-content">
+            <span class="session-round-tag" id="session-round-tag">Ciclo 1 de 4</span>
+            <div class="timer-digits" id="timer-display">25:00</div>
+            <span class="session-status-text" id="session-status-text">Pronto para focar</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controles de Ação Primários (Fora do card do relógio, dispostos harmoniosamente no layout) -->
+      <div class="timer-actions-row">
+        <button class="action-btn secondary" id="btn-reset" title="Reiniciar ciclo (R)">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+            <path d="M3 3v5h5"></path>
+          </svg>
+        </button>
+
+        <button class="action-btn primary" id="btn-play-pause">
+          <svg id="icon-play" viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+          <svg id="icon-pause" viewBox="0 0 24 24" width="24" height="24" fill="currentColor" style="display: none;">
+            <rect x="6" y="4" width="4" height="16"></rect>
+            <rect x="14" y="4" width="4" height="16"></rect>
+          </svg>
+          <span id="label-play-pause">Começar</span>
+        </button>
+
+        <!-- Botão Break Dedicado Alargado: Apenas a palavra Break -->
+        <button class="action-btn break-btn" id="btn-break" title="Interromper com Break (B)">
+          <span>Break</span>
+        </button>
+
+        <button class="action-btn secondary" id="btn-skip" title="Pular fase atual (S)">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="5 4 15 12 5 20 5 4"></polygon>
+            <line x1="19" y1="5" x2="19" y2="19"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Botões Simples em Formato de Ícones: Personal OS, Tutor AI, Pure Calendar, Diário -->
+      <div class="pomodoro-quick-nav-row" aria-label="Atalhos rápidos do ecossistema">
+        <a href="index.html" class="quick-nav-icon-btn" title="Voltar ao Personal OS">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+          </svg>
+        </a>
+        <a href="chat.html" class="quick-nav-icon-btn" title="Tutor AI & Rotina">
+          <span style="font-size: 13px;">🥋</span>
+        </a>
+        <a href="calendar.html" class="quick-nav-icon-btn" title="Pure Calendar">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+        </a>
+        <a href="diary.html" class="quick-nav-icon-btn" title="Diário 2FA">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+          </svg>
+        </a>
+      </div>
+    </main>
+
+    <!-- Dock Inferior Flutuante Minimalista -->
+    <footer class="bottom-dock-glass">
+      <button class="dock-item active" id="dock-btn-timer" title="Temporizador">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+        <span>Timer</span>
+      </button>
+
+      <button class="dock-item" id="dock-btn-backgrounds" title="Planos de Fundo & Shaders">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+          <circle cx="8.5" cy="8.5" r="1.5"></circle>
+          <polyline points="21 15 16 10 5 21"></polyline>
+        </svg>
+        <span>Fundos</span>
+      </button>
+
+      <button class="dock-item" id="dock-btn-analytics" title="Dashboard & Analytics Completo">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="20" x2="18" y2="10"></line>
+          <line x1="12" y1="20" x2="12" y2="4"></line>
+          <line x1="6" y1="20" x2="6" y2="14"></line>
+        </svg>
+        <span>Analytics</span>
+      </button>
+
+      <button class="dock-item" id="dock-btn-settings" title="Configurações">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+        <span>Ajustes</span>
+      </button>
+    </footer>
+  </div>
+
+  <!-- =========================================================
+       DASHBOARD DE ANALYTICS — TELA INTEIRA & VIDRO ULTRA-CLARO
+       Desktop: 100vw × 100vh com Zero-Scroll
+       Mobile: Fluido, Touch-First (>=44px), Safe-Area Insets
+       ========================================================= -->
+  <div class="dashboard-fullscreen-overlay" id="modal-analytics" aria-hidden="true">
+    <div class="dash-fullscreen-inner">
+      
+      <!-- TOP EXECUTIVE BAR (SLIM, VIDRO CRISTALINO) -->
+      <header class="dash-top-bar">
+        <div class="dash-bar-left">
+          <button class="dash-back-btn" id="btn-dash-back" title="Voltar ao Timer">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12"></line>
+              <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+            <span>Voltar</span>
+          </button>
+          <div class="dash-badge-live">
+            <span class="live-pulse-dot"></span>
+            <span>LIVE INTELLIGENCE</span>
+          </div>
+          <h1 class="dash-main-title">XXX TIME <span class="title-highlight">ANALYTICS</span></h1>
+          <div class="dash-live-clock-pill" id="dash-live-clock" title="Horário Atual em Tempo Real">00:00:00</div>
+        </div>
+
+        <div class="dash-bar-right">
+          <!-- Botão Break no Dashboard para Interrupção Imediata -->
+          <button class="dash-break-btn" id="btn-dash-break" title="Interromper foco atual e iniciar Break agora (B)">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
+              <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
+              <line x1="6" y1="1" x2="6" y2="4"></line>
+              <line x1="10" y1="1" x2="10" y2="4"></line>
+              <line x1="14" y1="1" x2="14" y2="4"></line>
+            </svg>
+            <span>Break</span>
+          </button>
+
+          <!-- Abas de Navegação -->
+          <div class="dash-tabs-pill">
+            <button class="dash-tab-btn active" id="tab-btn-resumo">Analytics</button>
+            <button class="dash-tab-btn" id="tab-btn-cronograma">Line</button>
+          </div>
+
+          <!-- Sincronização com Nuvem Supabase -->
+          <button class="dash-action-btn" id="btn-sync-cloud" title="Sincronizar histórico com Supabase Cloud">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+            </svg>
+            <span>Sincronizar</span>
+          </button>
+
+          <!-- Fechar Dashboard -->
+          <button class="dash-close-btn" id="btn-close-analytics" title="Fechar Dashboard (ESC)">
+            <span class="close-icon">✕</span>
+            <span class="kbd-hint">ESC</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- ÁREA PRINCIPAL DO DASHBOARD -->
+      <div class="dash-viewport-content">
+
+        <!-- ABA 1: RESUMO EXECUTIVO & ANÁLISE COMPLETA -->
+        <div class="analytics-tab-content active" id="pane-analytics-resumo">
+          
+          <!-- BANNER COM 6 KPIS ESSENCIAIS E VERÍDICOS -->
+          <section class="dash-kpi-row" aria-label="Métricas de Desempenho">
+            <div class="kpi-mini-glass">
+              <div class="kpi-mini-head">
+                <span class="kpi-mini-icon">⏳</span>
+                <span class="kpi-mini-title">Tempo de Foco</span>
+              </div>
+              <div class="kpi-mini-value" id="kpi-total-focus-time">0min</div>
+              <div class="kpi-mini-footer">Hoje: <strong id="val-focus-today">0min</strong></div>
+            </div>
+
+            <div class="kpi-mini-glass">
+              <div class="kpi-mini-head">
+                <span class="kpi-mini-icon">🍅</span>
+                <span class="kpi-mini-title">Sessões Feitas</span>
+              </div>
+              <div class="kpi-mini-value" id="kpi-total-sessions-started">0</div>
+              <div class="kpi-mini-footer" id="kpi-sessions-status">0 iniciadas</div>
+            </div>
+
+            <div class="kpi-mini-glass">
+              <div class="kpi-mini-head">
+                <span class="kpi-mini-icon">🏆</span>
+                <span class="kpi-mini-title">Ciclos Concluídos</span>
+              </div>
+              <div class="kpi-mini-value" id="kpi-total-pomodoros">0</div>
+              <div class="kpi-mini-footer">Taxa: <strong id="kpi-completion-rate" style="color: #34d399;">0%</strong></div>
+            </div>
+
+            <div class="kpi-mini-glass highlight-break">
+              <div class="kpi-mini-head">
+                <span class="kpi-mini-icon">☕</span>
+                <span class="kpi-mini-title">Interrupções por Break</span>
+              </div>
+              <div class="kpi-mini-value highlight" id="kpi-break-interruptions">0</div>
+              <div class="kpi-mini-footer" id="kpi-break-note">Registrado e sync</div>
+            </div>
+
+            <div class="kpi-mini-glass">
+              <div class="kpi-mini-head">
+                <span class="kpi-mini-icon">🔥</span>
+                <span class="kpi-mini-title">Consistência / Streak</span>
+              </div>
+              <div class="kpi-mini-value" id="kpi-streak-days">0 dias</div>
+              <div class="kpi-mini-footer">Score: <strong id="kpi-consistency-score">0%</strong></div>
+            </div>
+
+            <div class="kpi-mini-glass">
+              <div class="kpi-mini-head">
+                <span class="kpi-mini-icon">⚡</span>
+                <span class="kpi-mini-title">Pico Produtivo</span>
+              </div>
+              <div class="kpi-mini-value" id="kpi-peak-hour">--:--</div>
+              <div class="kpi-mini-footer" id="kpi-peak-period">Sem registros</div>
+            </div>
+          </section>
+
+          <!-- GRID DE 2 COLUNAS (DESKTOP ZERO-SCROLL) -->
+          <div class="dash-columns-layout">
+            
+            <!-- COLUNA ESQUERDA (GRÁFICOS, EVOLUÇÃO & CÁPSULAS) -->
+            <div class="dash-col-primary">
+              
+              <!-- Resumo Rápido de Atividade -->
+              <div class="dash-box-glass">
+                <div class="box-title-bar">
+                  <span class="box-title-text">Resumo de Atividade</span>
+                  <div class="dash-select-pill">
+                    <select id="select-resumo-type">
+                      <option value="time">Tempo de Foco ▾</option>
+                      <option value="sessions">Sessões Concluídas ▾</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="dash-summary-triad">
+                  <div class="summary-triad-card">
+                    <div class="triad-val" id="val-summary-today">0min</div>
+                    <div class="triad-lbl">Hoje</div>
+                  </div>
+                  <div class="summary-triad-card">
+                    <div class="triad-val" id="val-summary-week">0min</div>
+                    <div class="triad-lbl" id="label-summary-week">Semana Atual</div>
+                  </div>
+                  <div class="summary-triad-card">
+                    <div class="triad-val" id="val-summary-month">0min</div>
+                    <div class="triad-lbl">Total Acumulado</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Curva SVG de Produtividade -->
+              <div class="dash-box-glass">
+                <div class="box-title-bar">
+                  <span class="box-title-text">Tendência & Produtividade</span>
+                  <div class="dash-select-pill">
+                    <select id="select-chart-period">
+                      <option value="dias">Últimos 7 Dias ▾</option>
+                      <option value="semanas">Últimas 4 Semanas ▾</option>
+                      <option value="meses">Últimos 6 Meses ▾</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="svg-chart-container" id="svg-chart-container"></div>
+              </div>
+
+              <!-- Cápsulas 24 Horas -->
+              <div class="dash-box-glass">
+                <div class="box-title-bar">
+                  <span class="box-title-text">Distribuição em 24 Horas</span>
+                  <span class="box-subtitle-mono" id="hourly-peak-label">Sem registros</span>
+                </div>
+                <div class="hours-capsules-grid" id="hours-capsules-container"></div>
+                <div class="hours-labels-row">
+                  <span>00h</span><span>03h</span><span>06h</span><span>09h</span><span>12h</span><span>15h</span><span>18h</span><span>21h</span><span>23h</span>
+                </div>
+              </div>
+
+              <!-- Foco por Categorias -->
+              <div class="dash-box-glass">
+                <div class="box-title-bar">
+                  <span class="box-title-text">Foco por Categoria</span>
+                  <span class="box-subtitle-mono" id="tasks-total-count">0 Categorias</span>
+                </div>
+                <div class="task-breakdown-list" id="task-breakdown-container"></div>
+              </div>
+            </div>
+
+            <!-- COLUNA DIREITA (HEATMAP, EQUILÍBRIO & SUPABASE SYNC) -->
+            <div class="dash-col-secondary">
+              
+              <!-- Heatmap de Consistência (GitHub-style 16 Semanas) -->
+              <div class="dash-box-glass">
+                <div class="box-title-bar">
+                  <span class="box-title-text">Heatmap de Consistência</span>
+                  <div class="heatmap-stats-summary" id="hm-stats-summary">
+                    🔥 <b id="hm-current-streak">0d</b> streak • <span id="hm-active-days">0</span> dias
+                  </div>
+                </div>
+                <div class="heatmap-container-outer">
+                  <div class="heatmap-months-labels" id="heatmap-months-labels"></div>
+                  <div class="heatmap-matrix-body">
+                    <div class="heatmap-weekdays-col">
+                      <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+                    </div>
+                    <div class="heatmap-dots-grid" id="heatmap-dots-container"></div>
+                  </div>
+                  <div class="heatmap-legend-row">
+                    <span>Menos</span>
+                    <div class="heatmap-legend-cells">
+                      <div class="hm-cell level-0" title="Sem Foco"></div>
+                      <div class="hm-cell level-1" title="1 - 25 min"></div>
+                      <div class="hm-cell level-2" title="26 - 60 min"></div>
+                      <div class="hm-cell level-3" title="61 - 120 min"></div>
+                      <div class="hm-cell level-4" title="120+ min"></div>
+                    </div>
+                    <span>Mais</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Equilíbrio Foco vs Pausa & Interrupções -->
+              <div class="dash-box-glass">
+                <div class="box-title-bar">
+                  <span class="box-title-text">Equilíbrio Foco vs Pausa</span>
+                  <span class="ratio-badge-efficiency" id="ratio-efficiency-badge">0% Eficiência</span>
+                </div>
+                <div class="ratio-values-row">
+                  <div class="ratio-val-group">
+                    <span class="ratio-val-num" id="ratio-focus-min">0min</span>
+                    <span class="ratio-val-pct" id="ratio-focus-pct">0% Foco</span>
+                  </div>
+                  <div class="ratio-val-group" style="text-align: right;">
+                    <span class="ratio-val-num" id="ratio-break-min">0min</span>
+                    <span class="ratio-val-pct" id="ratio-break-pct">0% Pausa</span>
+                  </div>
+                </div>
+                <!-- Barra Segmentada Multipartes -->
+                <div class="ratio-bar-segmented" id="ratio-segmented-bar">
+                  <div class="seg-fill seg-focus" id="seg-focus" style="width: 0%;" title="Foco"></div>
+                  <div class="seg-fill seg-short" id="seg-short" style="width: 0%;" title="Pausa Curta"></div>
+                  <div class="seg-fill seg-long" id="seg-long" style="width: 0%;" title="Pausa Longa"></div>
+                  <div class="seg-fill seg-break-interrupt" id="seg-break-interrupt" style="width: 0%;" title="Interrupção por Break"></div>
+                </div>
+                <div class="ratio-legend-details" id="ratio-legend-details">
+                  <span>🍅 Foco: <b id="ratio-detail-focus">0m</b></span>
+                  <span>☕ Curta: <b id="ratio-detail-short">0m</b></span>
+                  <span>🌴 Longa: <b id="ratio-detail-long">0m</b></span>
+                  <span style="color: #fb923c;">⚡ Break: <b id="ratio-detail-break-interrupt">0m</b></span>
+                </div>
+              </div>
+
+              <!-- Status Supabase Cloud Live -->
+              <div class="dash-box-glass supabase-live-card">
+                <div class="supabase-live-header">
+                  <div>
+                    <div class="supabase-title">
+                      <span class="status-live-dot"></span> Supabase Cloud Conectado
+                    </div>
+                    <div class="supabase-desc">Sincronização em Tempo Real (`time_os_sessions` & `time_os_history`)</div>
+                  </div>
+                  <a href="https://supabase.com/dashboard/project/jfxxmhthwoggffrvkflv/editor" target="_blank" rel="noopener" class="supabase-btn-link" title="Abrir painel do Supabase">
+                    <span>Abrir ↗</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ABA 2: LINHA DO TEMPO CRONOGRAMA -->
+        <div class="analytics-tab-content" id="pane-analytics-cronograma">
+          <div class="dash-box-glass">
+            <div class="box-title-bar">
+              <span class="box-title-text">Linha do Tempo de Sessões & Breaks</span>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="text" id="crono-search-input" placeholder="Buscar por ciclo ou status..." class="glass-input-sm">
+                <button class="text-link-btn" id="btn-clear-history">Limpar</button>
+              </div>
+            </div>
+            <ul class="cronograma-timeline-list" id="cronograma-timeline-list"></ul>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       MODAL DE PLANOS DE FUNDO & CENTRAL CROMÁTICA DO SISTEMA
+       ========================================================= -->
+  <div class="modal-overlay" id="modal-backgrounds" aria-hidden="true">
+    <div class="modal-sheet-glass wide clear-glass">
+      <header class="modal-header">
+        <div class="header-titles">
+          <span class="modal-tag">Fundos & Identidade Visual</span>
+          <h2>Ambiente & Central Cromática</h2>
+        </div>
+        <div class="header-actions">
+          <!-- Switcher de Abas do Modal de Fundos -->
+          <div class="bg-modal-tabs">
+            <button class="bg-tab-switch-btn active" id="tab-btn-bg-gallery">🖼️ Fundos & Shaders</button>
+            <button class="bg-tab-switch-btn" id="tab-btn-bg-chroma">🎨 Central Cromática</button>
+          </div>
+          <button class="modal-close-btn" id="btn-close-backgrounds" title="Fechar">✕</button>
+        </div>
+      </header>
+
+      <div class="modal-body-scroll">
+        <!-- ABA 1: GALERIA DE FUNDOS & SHADERS -->
+        <div class="bg-modal-pane active" id="pane-bg-gallery">
+          <!-- Navegação de Categorias -->
+          <div class="bg-categories-nav" id="bg-categories-nav">
+            <button class="bg-cat-btn active" data-cat="shaders">🌀 Shaders WebGL (13)</button>
+            <button class="bg-cat-btn" data-cat="super_random">🎲 Super Aleatório</button>
+            <button class="bg-cat-btn" data-cat="focus">🎯 Minimal & Foco</button>
+            <button class="bg-cat-btn" data-cat="genx">💿 Gen X Soft Club</button>
+            <button class="bg-cat-btn" data-cat="flowers">🌸 Flores & Natureza</button>
+          </div>
+
+          <!-- Grid de Cards de Planos de Fundo -->
+          <div class="bg-gallery-grid-vast" id="bg-gallery-grid-vast"></div>
+
+          <!-- Controles de Fundo Dinâmico, Blur e Dimming -->
+          <div class="dynamic-bg-control-box">
+            <div class="dynamic-bg-header-row">
+              <div>
+                <div class="settings-row-title">🔄 Troca Dinâmica Automática de Fundo</div>
+                <div class="settings-row-desc">Alterna suavemente os papéis de parede e shaders da categoria selecionada.</div>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="cfg-dynamic-bg-toggle" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="dynamic-bg-settings-grid">
+              <div class="setting-slider-item">
+                <div class="slider-label-row">
+                  <span>⏱️ Intervalo: <strong id="val-bg-interval">10s</strong></span>
+                </div>
+                <input type="range" class="glass-range-slider" id="slider-bg-interval" min="5" max="120" value="10">
+              </div>
+
+              <div class="setting-slider-item">
+                <div class="slider-label-row">
+                  <span>🌫️ Desfoque do Fundo: <strong id="val-bg-blur">0px</strong></span>
+                </div>
+                <input type="range" class="glass-range-slider" id="slider-bg-blur" min="0" max="30" value="0">
+              </div>
+
+              <div class="setting-slider-item">
+                <div class="slider-label-row">
+                  <span>🌑 Escurecimento: <strong id="val-bg-dim">20%</strong></span>
+                </div>
+                <input type="range" class="glass-range-slider" id="slider-bg-dim" min="0" max="90" value="20" step="5">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ABA 2: CENTRAL CROMÁTICA DO SISTEMA (CONTROLE TOTAL E ELEGANTE DE CORES) -->
+        <div class="bg-modal-pane" id="pane-bg-chroma">
+          
+          <!-- SEÇÃO 1: PALETAS DE CORES CURADAS (PRESETS 1-CLIQUE) -->
+          <div class="chroma-section-card">
+            <div class="chroma-section-head">
+              <div>
+                <span class="chroma-tag">Presets Visuais</span>
+                <h3 class="chroma-title">Paletas Cromáticas de Alta Fidelidade</h3>
+                <p class="chroma-desc">Alterne instantaneamente a cor de destaque, o anel do timer e o glow neon do sistema.</p>
+              </div>
+              <span class="active-palette-badge" id="active-palette-name">Neon Blood Sanguine</span>
+            </div>
+
+            <div class="palette-presets-grid" id="palette-presets-container">
+              <!-- Cards de Presets Injetados via JavaScript -->
+            </div>
+          </div>
+
+          <!-- SEÇÃO 2: ESTÚDIO CUSTOMIZADO DE CORES (FINE-TUNING) -->
+          <div class="chroma-section-card">
+            <div class="chroma-section-head">
+              <div>
+                <span class="chroma-tag">Personalização Livre</span>
+                <h3 class="chroma-title">Estúdio de Cores & Customização Completa</h3>
+                <p class="chroma-desc">Ajuste os valores hexadecimais específicos para cada modo do temporizador.</p>
+              </div>
+            </div>
+
+            <div class="chroma-inputs-grid">
+              <div class="color-picker-tile">
+                <div class="color-tile-info">
+                  <span class="color-tile-dot" id="dot-color-primary" style="background: #ff1037;"></span>
+                  <div>
+                    <span class="color-tile-label">Cor Primária (Foco & Sistema)</span>
+                    <span class="color-tile-desc">Destaque do timer, botões e cards</span>
+                  </div>
+                </div>
+                <div class="color-input-controls">
+                  <input type="color" id="picker-color-primary" value="#ff1037" class="glass-color-picker">
+                  <input type="text" id="input-hex-primary" value="#ff1037" class="glass-hex-input" maxlength="7" spellcheck="false">
+                </div>
+              </div>
+
+              <div class="color-picker-tile">
+                <div class="color-tile-info">
+                  <span class="color-tile-dot" id="dot-color-short" style="background: #fb923c;"></span>
+                  <div>
+                    <span class="color-tile-label">Cor da Pausa Curta</span>
+                    <span class="color-tile-desc">Indicador do modo de descanso breve</span>
+                  </div>
+                </div>
+                <div class="color-input-controls">
+                  <input type="color" id="picker-color-short" value="#fb923c" class="glass-color-picker">
+                  <input type="text" id="input-hex-short" value="#fb923c" class="glass-hex-input" maxlength="7" spellcheck="false">
+                </div>
+              </div>
+
+              <div class="color-picker-tile">
+                <div class="color-tile-info">
+                  <span class="color-tile-dot" id="dot-color-long" style="background: #34d399;"></span>
+                  <div>
+                    <span class="color-tile-label">Cor da Pausa Longa</span>
+                    <span class="color-tile-desc">Indicador do modo restaurador</span>
+                  </div>
+                </div>
+                <div class="color-input-controls">
+                  <input type="color" id="picker-color-long" value="#34d399" class="glass-color-picker">
+                  <input type="text" id="input-hex-long" value="#34d399" class="glass-hex-input" maxlength="7" spellcheck="false">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SEÇÃO 3: INTENSIDADE DE BRILHO NEON & LIQUID GLASS -->
+          <div class="chroma-section-card">
+            <div class="chroma-section-head">
+              <div>
+                <span class="chroma-tag">Iluminação & Atmosfera</span>
+                <h3 class="chroma-title">Intensidade de Glow & Saturação</h3>
+                <p class="chroma-desc">Controle a potência da emanação de luz e a vibração do vidro translúcido.</p>
+              </div>
+            </div>
+
+            <div class="dynamic-bg-settings-grid">
+              <div class="setting-slider-item">
+                <div class="slider-label-row">
+                  <span>✨ Brilho Neon Glow: <strong id="val-glow-intensity">45%</strong></span>
+                </div>
+                <input type="range" class="glass-range-slider" id="slider-glow-intensity" min="0" max="100" value="45">
+              </div>
+
+              <div class="setting-slider-item">
+                <div class="slider-label-row">
+                  <span>🌈 Saturação do Vidro: <strong id="val-glass-saturation">180%</strong></span>
+                </div>
+                <input type="range" class="glass-range-slider" id="slider-glass-saturation" min="100" max="250" value="180" step="5">
+              </div>
+            </div>
+          </div>
+
+          <!-- SEÇÃO 4: PRÉ-VISUALIZAÇÃO AO VIVO (LIVE PREVIEW) -->
+          <div class="chroma-section-card chroma-preview-box">
+            <div class="chroma-section-head" style="margin-bottom: 8px;">
+              <div>
+                <span class="chroma-tag">Pré-Visualização em Tempo Real</span>
+                <h3 class="chroma-title">Como a Cor Responde no Sistema</h3>
+              </div>
+            </div>
+
+            <div class="preview-interactive-stage">
+              <!-- Mini Dial -->
+              <div class="preview-mini-dial">
+                <div class="preview-dial-circle" id="preview-dial-circle">
+                  <span id="preview-dial-text">25:00</span>
+                </div>
+              </div>
+
+              <!-- Mini Botões e Badges -->
+              <div class="preview-elements-stack">
+                <div class="preview-buttons-row">
+                  <button class="preview-sample-btn primary" id="preview-sample-primary">Começar</button>
+                  <button class="preview-sample-btn break" id="preview-sample-break">Break</button>
+                </div>
+                <div class="preview-badges-row">
+                  <span class="preview-badge-chip" id="preview-sample-chip">● AO VIVO</span>
+                  <span class="preview-tag-chip">Foco Ativo</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SEÇÃO 5: BARRA DE AÇÕES & RESTAURAÇÃO -->
+          <div class="chroma-actions-bar">
+            <button class="chroma-reset-btn" id="btn-reset-chroma" title="Restaurar o Vermelho Sanguíneo Neon oficial">
+              <span>↺ Restaurar Vermelho Sanguíneo Padrão</span>
+            </button>
+            <button class="action-btn primary" id="btn-apply-chroma" style="min-width: 170px;">
+              <span>Salvar Paleta</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       MODAL DE CONFIGURAÇÕES DO TIMER
+       ========================================================= -->
+  <div class="modal-overlay" id="modal-settings" aria-hidden="true">
+    <div class="modal-sheet-glass compact clear-glass">
+      <header class="modal-header">
+        <div class="header-titles">
+          <span class="modal-tag">Preferências</span>
+          <h2>Ajustes do Timer</h2>
+        </div>
+        <button class="modal-close-btn" id="btn-close-settings" title="Fechar">✕</button>
+      </header>
+
+      <div class="modal-body-scroll">
+        <div class="setting-group">
+          <label for="cfg-focus">Tempo de Foco (minutos)</label>
+          <input type="number" id="cfg-focus" min="1" max="120" value="25">
+        </div>
+        <div class="setting-group">
+          <label for="cfg-short">Pausa Curta (minutos)</label>
+          <input type="number" id="cfg-short" min="1" max="60" value="5">
+        </div>
+        <div class="setting-group">
+          <label for="cfg-long">Pausa Longa (minutos)</label>
+          <input type="number" id="cfg-long" min="1" max="60" value="15">
+        </div>
+        <div class="setting-group">
+          <label for="cfg-interval">Ciclos até Pausa Longa</label>
+          <input type="number" id="cfg-interval" min="1" max="12" value="4">
+        </div>
+        <div class="setting-toggle-row">
+          <span>Sons e Alarme Sonoro Ativo</span>
+          <label class="switch">
+            <input type="checkbox" id="cfg-sound" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="setting-group" style="margin-top: 10px;">
+          <label for="cfg-alarm-sound">Som de Alarme de Conclusão (Personal OS)</label>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <select id="cfg-alarm-sound" class="glass-select" style="flex: 1;">
+              <option value="ps2_startup">🎮 Personal OS Oficial (PS2 Startup)</option>
+              <option value="sino_tibetano">🔔 Sino Tibetano Harmônico</option>
+              <option value="gongo_zen">🧘 Gongo Sagrado Zen</option>
+              <option value="chime_zen">🎶 Chime Solfeggio 528Hz</option>
+            </select>
+            <button type="button" id="btn-preview-sound" class="action-btn secondary" style="padding: 9px 14px; font-size: 11px; white-space: nowrap; height: 42px; border-radius: 12px; cursor: pointer;" title="Ouvir demonstração do som">
+              ▶ Testar
+            </button>
+          </div>
+        </div>
+
+        <div class="setting-group" style="margin-top: 6px;">
+          <div class="slider-label-row" style="display: flex; justify-content: space-between; font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px;">
+            <span>Volume do Alarme:</span>
+            <strong id="val-alarm-volume" style="color: var(--text-main);">85%</strong>
+          </div>
+          <input type="range" class="glass-range-slider" id="cfg-alarm-volume" min="10" max="100" value="85" step="5" style="width: 100%; cursor: pointer;">
+        </div>
+        <div class="setting-toggle-row">
+          <span>Início Automático da Próxima Fase</span>
+          <label class="switch">
+            <input type="checkbox" id="cfg-auto-start">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="modal-actions-row">
+          <button class="action-btn primary full" id="btn-save-settings">Salvar Ajustes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tooltip Flutuante de Dashboard -->
+  <div id="dash-floating-tooltip" class="dash-floating-tooltip"></div>
+
+  <!-- Toast de Notificações Internas -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Scripts: Shaders WebGL (ES Module) e Motor Geral -->
+  <script type="module" src="js/pomodoro-webgl.js"></script>
+  <script src="js/pomodoro-app.js"></script>
+  <script>
+    window.addEventListener('keydown', (e) => {
+      const a = document.activeElement;
+      const isTyping = a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || a.isContentEditable);
+      if ((e.key === 'h' || e.key === 'H' || e.key === 'Home') && !isTyping && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        window.location.href = 'index.html';
+      }
+    });
+  </script>
+  <!-- Widget de Chat Apple Glassmorphism (AI Tutor) -->
+  <script src="js/chat-widget.js"></script>
+</body>
+</html>

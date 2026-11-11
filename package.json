@@ -1,0 +1,17 @@
+{
+  "name": "m-c-p---os-personal-os-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MCP Personal OS — Sistema Operacional Pessoal & Gestão (Demo Showcase)",
+  "scripts": {
+    "dev": "node server_universal_api.mjs",
+    "start": "node server_universal_api.mjs",
+    "build": "node build.js",
+    "mac:build": "bash mac-native/build_mac_app.sh",
+    "mac:open": "open McpPersonalOs.app",
+    "apk:build": "bash build_android_apk.sh"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4"
+  }
+}

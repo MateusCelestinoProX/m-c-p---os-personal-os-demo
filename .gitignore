@@ -1,0 +1,37 @@
+.DS_Store
+Thumbs.db
+node_modules/
+.env
+.env.local
+.env.*.local
+*.log
+.tmp/
+repo_dreamboard/
+dreamboard_source/
+skills/
+.vercel
+scratch/
+
+# Segredos OAuth / Credenciais — NUNCA versionar
+credentials.json
+token.json
+client_secret*.json
+
+# Arquivos de desenvolvimento local
+server.py
+new backgrounds/
+gemini.md
+*.bak
+__pycache__/
+
+# Binários, instaladores, chaves e mapas de desenvolvimento
+*.apk
+*.idsig
+*.zip
+*.keystore
+graphify-out/
+*.app/
+mac-native/build/
+personalos_media_urlcache/
+.env*
+!.env.example

@@ -1,0 +1,2017 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+    <title>Tutor AI & Rotina — M.C.P PERSONAL OS</title>
+
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
+
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/brand/icon.png">
+    <link rel="apple-touch-icon" href="assets/brand/icon.png">
+
+    <!-- Insets & Anti-Flicker Síncrono (macOS & Android) -->
+    <script>
+        (function() {
+            function syncInsets() {
+                try {
+                    if (window.AndroidBridge && typeof window.AndroidBridge.getSafeTop === 'function') {
+                        const top = window.AndroidBridge.getSafeTop();
+                        const bottom = window.AndroidBridge.getSafeBottom();
+                        if (top && top >= 40) document.documentElement.style.setProperty('--safe-top', top + 'px');
+                        if (bottom && bottom >= 16) document.documentElement.style.setProperty('--safe-bottom', bottom + 'px');
+                    }
+                } catch(e) {}
+            }
+            syncInsets();
+            window.addEventListener('androidbridge:ready', syncInsets);
+            document.addEventListener('DOMContentLoaded', syncInsets);
+
+            try {
+                const isMacDesktop = window.location.protocol === 'personalos:' || 
+                                     (typeof navigator !== 'undefined' && navigator.userAgent && navigator.userAgent.includes('PersonalOS-Mac')) || 
+                                     window.__MACOS_NATIVE__;
+                if (isMacDesktop) {
+                    const scrollStyle = document.createElement('style');
+                    scrollStyle.id = 'macos-scrollbar-ultra-thin-direct';
+                    scrollStyle.textContent = `
+                        ::-webkit-scrollbar { width: 3px !important; height: 3px !important; }
+                        ::-webkit-scrollbar-track { background: transparent !important; }
+                        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.25) !important; border-radius: 9999px !important; }
+                        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.6) !important; }
+                    `;
+                    document.head.appendChild(scrollStyle);
+                }
+            } catch(e) {}
+        })();
+    </script>
+
+    <!-- Tailwind CSS (Bundle Local Offline) -->
+    <script src="assets/vendor/tailwind.js"></script>
+
+    <!-- Markdown Parser & DOM Purify Sanitizer (Locais Offline) -->
+    <script src="assets/vendor/marked.min.js"></script>
+    <script src="assets/vendor/purify.min.js"></script>
+
+    <!-- Three.js & Shader Engine Oficial do Personal OS -->
+    <script src="assets/vendor/three.min.js"></script>
+    <script type="module" src="js/webgl-backgrounds.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"SF Pro Text"', 'Inter', 'Helvetica', 'sans-serif'],
+                        mono: ['"SF Mono"', 'ui-monospace', 'Menlo', 'Monaco', 'Consolas', 'monospace']
+                    },
+                    colors: {
+                        vanta: '#000000',
+                        platinum: '#f5f5f7',
+                        graphite: '#86868b'
+                    }
+                }
+            }
+        };
+    </script>
+
+    <!-- ========================================================================= -->
+    <!-- ESTILOS AUTÔNOMOS APPLE LIQUID GLASS (100% BLINDADOS E RESILIENTES)       -->
+    <!-- ========================================================================= -->
+    <style>
+        :root {
+            --safe-top: max(env(safe-area-inset-top, 0px), 16px);
+            --safe-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
+            --accent-glow: rgba(56, 189, 248, 0.35);
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            height: 100dvh;
+            overflow: hidden;
+            background-color: #000000;
+            color: #f5f5f7;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", Inter, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        button {
+            background: none;
+            border: none;
+            color: inherit;
+            font: inherit;
+            cursor: pointer;
+            outline: none;
+        }
+
+        input, textarea {
+            font: inherit;
+            color: inherit;
+            outline: none;
+            border: none;
+            background: transparent;
+        }
+
+        /* HARDWARE ACCELERATED WEBGL CANVAS CONTAINER (100% IDENTICO AO INDEX.HTML) */
+        #bg-webgl-container {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 0;
+            pointer-events: none;
+            opacity: 1.0;
+            contain: strict;
+            transform: translate3d(0, 0, 0);
+            will-change: transform;
+            backface-visibility: hidden;
+        }
+
+        #bg-webgl-container canvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100% !important;
+            height: 100% !important;
+            display: block;
+        }
+
+        /* ZERO BLOQUEIO DE SHADER — CAMADA TRANSLÚCIDA ULTRA CRISTALINA */
+        .ambient-mesh-glow {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 1;
+            pointer-events: none;
+            background: transparent;
+        }
+
+        /* VIEWPORT ROOT */
+        .app-shell {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            background: transparent;
+        }
+
+        /* TOP NAVIGATION HEADER (FROSTED APPLE ULTRA LIQUID GLASS) */
+        .glass-navbar {
+            min-height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: max(var(--safe-top, 0px), 8px) 1.25rem 8px 1.25rem;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.04) 100%);
+            backdrop-filter: blur(20px) saturate(190%);
+            -webkit-backdrop-filter: blur(20px) saturate(190%);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.22);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.45);
+            flex-shrink: 0;
+            position: relative;
+            z-index: 30;
+        }
+
+        /* MAIN TWO-PANE WORKSPACE */
+        .app-workspace {
+            display: flex;
+            flex: 1;
+            height: 100%;
+            overflow: hidden;
+            position: relative;
+            background: transparent;
+        }
+
+        /* SIDEBAR (APPLE LIQUID GLASS ULTRA CLARO) */
+        .glass-sidebar {
+            width: 320px;
+            display: flex;
+            flex-direction: column;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.03) 100%);
+            backdrop-filter: blur(24px) saturate(190%);
+            -webkit-backdrop-filter: blur(24px) saturate(190%);
+            border-right: 1px solid rgba(255, 255, 255, 0.20);
+            box-shadow: 4px 0 25px rgba(0, 0, 0, 0.15), inset -1px 0 1px rgba(255, 255, 255, 0.35);
+            flex-shrink: 0;
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            z-index: 25;
+        }
+
+        @media (max-width: 1023px) {
+            .glass-sidebar {
+                position: fixed;
+                top: 0;
+                bottom: 0;
+                left: 0;
+                padding-top: max(var(--safe-top, 0px), 16px);
+                padding-bottom: max(var(--safe-bottom, 0px), 16px);
+                max-width: 85vw;
+                background: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(20, 20, 30, 0.28) 100%);
+                backdrop-filter: blur(28px) saturate(200%);
+                -webkit-backdrop-filter: blur(28px) saturate(200%);
+                border-right: 1px solid rgba(255, 255, 255, 0.24);
+                box-shadow: 10px 0 40px rgba(0, 0, 0, 0.3);
+                transform: translateX(-100%);
+            }
+            .glass-sidebar.open {
+                transform: translateX(0);
+            }
+        }
+
+        /* SIDEBAR BACKDROP FOR MOBILE (VIDRO LÍMPIDO LEVEMENTE DESFOCADO) */
+        .sidebar-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.20);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 20;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease;
+        }
+        .sidebar-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* CHAT WORKSPACE (CENTER & RIGHT) */
+        .chat-main-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow: hidden;
+            position: relative;
+            background: transparent;
+        }
+
+        /* CHAT SUB-HEADER */
+        .chat-sub-header {
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 1.25rem;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+            flex-shrink: 0;
+            z-index: 15;
+        }
+
+        /* FEED DE MENSAGENS */
+        .chat-feed {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            position: relative;
+        }
+
+        /* CHAT DOCK (FLOATING ISLAND INPUT) */
+        .chat-dock-container {
+            flex-shrink: 0;
+            padding: 0.75rem 1.25rem;
+            padding-bottom: max(var(--safe-bottom, env(safe-area-inset-bottom, 0px)), 1.25rem);
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 20;
+        }
+
+        .chat-dock {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.03) 100%);
+            backdrop-filter: blur(22px) saturate(190%);
+            -webkit-backdrop-filter: blur(22px) saturate(190%);
+            border: 1px solid rgba(255, 255, 255, 0.32);
+            border-radius: 1.5rem;
+            padding: 0.65rem 0.85rem;
+            box-shadow: 
+                0 20px 50px rgba(0, 0, 0, 0.25),
+                inset 0 1px 2px rgba(255, 255, 255, 0.65);
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .chat-dock:focus-within {
+            border-color: rgba(56, 189, 248, 0.75);
+            box-shadow: 
+                0 24px 70px rgba(0, 0, 0, 0.35),
+                0 0 25px rgba(14, 165, 233, 0.35),
+                inset 0 1px 2px rgba(255, 255, 255, 0.75);
+        }
+
+        /* GLASS BUTTON PRIMITIVES & APPLE MINIMAL DESIGN */
+        .apple-glass-btn-minimal {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.35rem 0.65rem;
+            border-radius: 0.65rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.85);
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            user-select: none;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .apple-glass-btn-minimal:hover {
+            background: rgba(255, 255, 255, 0.14);
+            border-color: rgba(255, 255, 255, 0.32);
+            color: #ffffff;
+            transform: translateY(-1px);
+        }
+        .apple-glass-btn-minimal:active {
+            transform: scale(0.97);
+        }
+
+        .apple-glass-icon-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 34px;
+            height: 34px;
+            border-radius: 0.65rem;
+            color: rgba(255, 255, 255, 0.85);
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            cursor: pointer;
+        }
+        .apple-glass-icon-btn:hover {
+            background: rgba(255, 255, 255, 0.16);
+            border-color: rgba(255, 255, 255, 0.35);
+            color: #ffffff;
+            transform: translateY(-1px);
+        }
+        .apple-glass-icon-btn:active {
+            transform: scale(0.95);
+        }
+
+        .apple-glass-send-btn {
+            width: 34px;
+            height: 34px;
+            border-radius: 0.75rem;
+            background: linear-gradient(135deg, rgba(14, 165, 233, 0.85) 0%, rgba(2, 132, 199, 0.95) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            box-shadow: 0 4px 14px rgba(14, 165, 233, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.5);
+            flex-shrink: 0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .apple-glass-send-btn:hover {
+            transform: scale(1.05);
+            background: linear-gradient(135deg, rgba(14, 165, 233, 1) 0%, rgba(3, 105, 161, 1) 100%);
+            box-shadow: 0 6px 20px rgba(14, 165, 233, 0.5);
+        }
+        .apple-glass-send-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* ACTIONS DROPDOWN POPOVER (APPLE ULTRA LIQUID GLASS) */
+        .apple-glass-dropdown {
+            position: absolute;
+            top: 42px;
+            right: 0;
+            z-index: 100;
+            min-width: 210px;
+            border-radius: 1rem;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.16) 0%, rgba(18, 18, 26, 0.85) 100%);
+            backdrop-filter: blur(28px) saturate(200%);
+            -webkit-backdrop-filter: blur(28px) saturate(200%);
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45), inset 0 1px 2px rgba(255, 255, 255, 0.5);
+            padding: 0.35rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+            animation: dropdownFadeIn 0.15s ease-out;
+        }
+        @keyframes dropdownFadeIn {
+            from { opacity: 0; transform: translateY(-6px) scale(0.96); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.55rem 0.75rem;
+            border-radius: 0.65rem;
+            font-size: 0.75rem;
+            color: #e5e7eb;
+            transition: all 0.15s ease;
+            text-align: left;
+            width: 100%;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+        }
+        .dropdown-item:hover {
+            background: rgba(255, 255, 255, 0.12);
+            color: #ffffff;
+        }
+
+        .apple-glass-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.45rem 0.85rem;
+            border-radius: 0.75rem;
+            font-size: 0.75rem;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, sans-serif;
+            font-weight: 600;
+            color: #ffffff;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.05) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            user-select: none;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .apple-glass-btn:hover {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.12) 100%);
+            border-color: rgba(255, 255, 255, 0.45);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25), inset 0 1px 2px rgba(255, 255, 255, 0.5);
+            color: #ffffff;
+        }
+        .apple-glass-btn:active {
+            transform: scale(0.97);
+        }
+
+        .apple-glass-btn-accent {
+            background: linear-gradient(135deg, rgba(14, 165, 233, 0.50) 0%, rgba(2, 132, 199, 0.35) 100%);
+            border-color: rgba(56, 189, 248, 0.65);
+            color: #ffffff;
+            box-shadow: 0 4px 16px rgba(14, 165, 233, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.45);
+        }
+        .apple-glass-btn-accent:hover {
+            background: linear-gradient(135deg, rgba(14, 165, 233, 0.70) 0%, rgba(2, 132, 199, 0.50) 100%);
+            border-color: rgba(125, 211, 252, 0.9);
+            box-shadow: 0 6px 24px rgba(14, 165, 233, 0.5);
+        }
+
+        /* PILLS & BADGES */
+        .glass-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.25rem 0.65rem;
+            border-radius: 9999px;
+            font-size: 0.6875rem;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+            background: rgba(255, 255, 255, 0.10);
+            border: 1px solid rgba(255, 255, 255, 0.20);
+            color: #ffffff;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+        .glass-pill:hover {
+            background: rgba(255, 255, 255, 0.18);
+            border-color: rgba(255, 255, 255, 0.35);
+            color: #ffffff;
+        }
+
+        .glass-pill-emerald {
+            background: rgba(16, 185, 129, 0.22);
+            border-color: rgba(52, 211, 153, 0.45);
+            color: #a7f3d0;
+        }
+        .glass-pill-amber {
+            background: rgba(245, 158, 11, 0.22);
+            border-color: rgba(251, 191, 36, 0.45);
+            color: #fde68a;
+        }
+        .glass-pill-sky {
+            background: rgba(14, 165, 233, 0.22);
+            border-color: rgba(56, 189, 248, 0.45);
+            color: #bae6fd;
+        }
+        .glass-pill-rose {
+            background: rgba(244, 63, 94, 0.22);
+            border-color: rgba(251, 113, 133, 0.45);
+            color: #fecdd3;
+        }
+
+        /* CARDS DE PROMPT RÁPIDO (ULTRA LIQUID GLASS CRISTALINO) */
+        .prompt-card {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.02) 100%) !important;
+            backdrop-filter: blur(16px) saturate(180%) !important;
+            -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+            border: 1px solid rgba(255, 255, 255, 0.24) !important;
+            border-radius: 1.25rem;
+            padding: 1rem 1.15rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.45) !important;
+        }
+        .prompt-card:hover {
+            transform: translateY(-2px);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.20) 0%, rgba(255, 255, 255, 0.05) 100%) !important;
+            border-color: rgba(56, 189, 248, 0.65) !important;
+            box-shadow: 0 14px 40px rgba(14, 165, 233, 0.3), inset 0 1px 2px rgba(255, 255, 255, 0.65) !important;
+        }
+        .prompt-card:active {
+            transform: scale(0.98);
+        }
+
+        /* BUBBLES DE MENSAGEM (VIDRO ULTRA CLARO APPLE) */
+        .bubble-user-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.35rem;
+            max-width: 780px;
+            margin-left: auto;
+        }
+        .bubble-user {
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.32) 0%, rgba(14, 165, 233, 0.12) 100%) !important;
+            backdrop-filter: blur(16px) saturate(190%) !important;
+            -webkit-backdrop-filter: blur(16px) saturate(190%) !important;
+            border: 1px solid rgba(125, 211, 252, 0.48) !important;
+            border-radius: 1.25rem 1.25rem 0.25rem 1.25rem;
+            padding: 0.85rem 1.15rem;
+            color: #ffffff;
+            font-size: 0.875rem;
+            line-height: 1.6;
+            box-shadow: 0 12px 35px rgba(14, 165, 233, 0.25), inset 0 1px 2px rgba(255, 255, 255, 0.65) !important;
+            word-break: break-word;
+        }
+
+        .bubble-tutor-wrap {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            max-width: 820px;
+            width: 100%;
+        }
+        .tutor-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.18) 0%, rgba(14, 165, 233, 0.25) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2), inset 0 1px 2px rgba(255, 255, 255, 0.55);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            color: #7dd3fc;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .bubble-tutor {
+            flex: 1;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.03) 100%) !important;
+            backdrop-filter: blur(16px) saturate(190%) !important;
+            -webkit-backdrop-filter: blur(16px) saturate(190%) !important;
+            border: 1px solid rgba(255, 255, 255, 0.32) !important;
+            border-radius: 1.25rem 1.25rem 1.25rem 0.35rem;
+            padding: 1.15rem 1.4rem;
+            color: #ffffff !important;
+            font-size: 0.9375rem;
+            line-height: 1.65;
+            box-shadow: 
+                0 20px 50px rgba(0, 0, 0, 0.22),
+                inset 0 1px 2px rgba(255, 255, 255, 0.6),
+                inset 0 -1px 1px rgba(255, 255, 255, 0.12) !important;
+            word-break: break-word;
+            contain: layout style;
+        }
+
+        /* MARKDOWN STYLING DENTRO DA BOLHA DO TUTOR (CRISP & LEGÍVEL SOBRE O SHADER) */
+        .bubble-tutor h1, .bubble-tutor h2, .bubble-tutor h3, .bubble-tutor h4 {
+            color: #ffffff;
+            font-weight: 700;
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.01em;
+        }
+        .bubble-tutor h1 { font-size: 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.18); padding-bottom: 0.35rem; }
+        .bubble-tutor h2 { font-size: 1.1rem; color: #7dd3fc; }
+        .bubble-tutor h3 { font-size: 0.95rem; color: #38bdf8; }
+        .bubble-tutor p { margin-bottom: 0.85rem; color: rgba(255, 255, 255, 0.92); }
+        .bubble-tutor p:last-child { margin-bottom: 0; }
+        .bubble-tutor strong { color: #ffffff; font-weight: 700; }
+        .bubble-tutor em { color: #e2e8f0; font-style: italic; }
+        .bubble-tutor ul, .bubble-tutor ol { margin-left: 1.35rem; margin-bottom: 0.85rem; color: rgba(255, 255, 255, 0.92); }
+        .bubble-tutor li { margin-bottom: 0.3rem; }
+        .bubble-tutor blockquote {
+            border-left: 3px solid #38bdf8;
+            background: rgba(14, 165, 233, 0.12);
+            padding: 0.65rem 1rem;
+            border-radius: 0 0.5rem 0.5rem 0;
+            margin: 0.85rem 0;
+            color: #e0f2fe;
+            font-style: italic;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+        .bubble-tutor code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+            background: rgba(255, 255, 255, 0.16);
+            padding: 0.15rem 0.45rem;
+            border-radius: 0.35rem;
+            font-size: 0.82em;
+            color: #7dd3fc;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+        .bubble-tutor pre {
+            background: rgba(0, 0, 0, 0.28);
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            border-radius: 0.75rem;
+            padding: 0.85rem 1.15rem;
+            overflow-x: auto;
+            margin: 0.85rem 0;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+        }
+        .bubble-tutor pre code {
+            background: transparent;
+            border: none;
+            padding: 0;
+            color: #f8fafc;
+        }
+        .bubble-tutor hr {
+            border: none;
+            border-top: 1px solid rgba(255, 255, 255, 0.16);
+            margin: 1rem 0;
+        }
+
+        /* CHAT HISTORY ITEM NA SIDEBAR */
+        .history-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.65rem 0.85rem;
+            border-radius: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            user-select: none;
+        }
+        .history-item:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.25);
+            transform: translateX(2px);
+        }
+        .history-item.active {
+            background: linear-gradient(135deg, rgba(14, 165, 233, 0.35) 0%, rgba(56, 189, 248, 0.15) 100%);
+            border-color: rgba(56, 189, 248, 0.55);
+            box-shadow: 0 4px 16px rgba(14, 165, 233, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+        }
+        .history-item .del-btn {
+            opacity: 0.55;
+            padding: 0.25rem 0.35rem;
+            border-radius: 0.45rem;
+            font-size: 0.75rem;
+            color: #94a3b8;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 28px;
+            min-height: 28px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .history-item:hover .del-btn {
+            opacity: 0.95;
+            color: #cbd5e1;
+        }
+        .history-item .del-btn:hover, .history-item .del-btn:active {
+            opacity: 1;
+            background: rgba(239, 68, 68, 0.25);
+            border-color: rgba(239, 68, 68, 0.45);
+            color: #fca5a5;
+            transform: scale(1.08);
+        }
+
+        @keyframes confirmPop {
+            from {
+                opacity: 0;
+                transform: scale(0.92) translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        /* KEYCAPS */
+        .apple-keycap {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 20px;
+            height: 20px;
+            padding: 0 5px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 10px;
+            font-weight: 700;
+            color: #d1d5db;
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+        }
+
+        /* ANIMAÇÃO DE PULSO E DIGITAÇÃO */
+        @keyframes subtlePulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.08); opacity: 0.7; }
+        }
+        .pulsing-dot {
+            animation: subtlePulse 2s infinite ease-in-out;
+        }
+
+        @keyframes bounceDot {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+        .typing-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #38bdf8;
+            display: inline-block;
+            animation: bounceDot 1.4s infinite ease-in-out both;
+        }
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+        /* SCROLLBAR PADRÃO */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.4); }
+    </style>
+</head>
+<body>
+
+    <!-- CONTAINER DO SHADER WEBGL HARDWARE ACCELERATED -->
+    <div id="bg-webgl-container"></div>
+
+    <!-- MESH GRADIENT AMBIENTE RETINA -->
+    <div class="ambient-mesh-glow"></div>
+
+    <!-- VIEWPORT ROOT DO APP -->
+    <div class="app-shell">
+
+        <!-- ========================================================================= -->
+        <!-- TOP APP NAVIGATION HEADER (APPLE LIQUID GLASS ULTRA-CLEAN)                 -->
+        <!-- ========================================================================= -->
+        <header class="glass-navbar">
+            <!-- Esquerda: Toggle Sidebar Mobile & Voltar para Vitrine -->
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <button onclick="toggleSidebar(true)" class="apple-glass-icon-btn lg:hidden" title="Abrir Histórico">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
+
+                <a href="index.html" class="apple-glass-btn-minimal" title="Voltar para a Vitrine">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                    <span>Vitrine</span>
+                </a>
+
+                <div style="width: 1px; height: 16px; background: rgba(255, 255, 255, 0.15); margin: 0 0.15rem;"></div>
+
+                <div style="display: flex; align-items: center; gap: 0.45rem;">
+                    <span class="pulsing-dot" style="width: 7px; height: 7px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981;"></span>
+                    <span style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 0.8125rem; font-weight: 700; color: #ffffff;">Tutor AI</span>
+                </div>
+            </div>
+
+            <!-- Centro: Título da Sessão Atual (Elegante & Minimalista) -->
+            <div class="hidden md:flex" style="align-items: center; justify-content: center; max-width: 420px; text-align: center;">
+                <span id="active-chat-title" style="font-size: 0.75rem; color: #9ca3af; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    Conversa com Tutor AI
+                </span>
+            </div>
+
+            <!-- Direita: Ações Rápidas (Limpar Chat, Apagar Chat, Shader, Menu •••) -->
+            <div style="display: flex; align-items: center; gap: 0.45rem; position: relative;">
+                <!-- Botão Rápido: Limpar Chat Atual -->
+                <button onclick="clearCurrentChat()" class="apple-glass-icon-btn" title="Limpar mensagens desta conversa" style="color: #7dd3fc;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 20h9"></path>
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                    </svg>
+                </button>
+
+                <!-- Botão Rápido: Apagar Conversa Atual -->
+                <button onclick="deleteChat(activeSessionId)" class="apple-glass-icon-btn" title="Apagar conversa permanentemente" style="color: #fca5a5;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                </button>
+
+                <!-- Alternador de Shader -->
+                <button onclick="cycleNextShader()" class="apple-glass-btn-minimal" title="Alternar Shader WebGL de Fundo">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="m4.93 4.93 4.24 4.24"></path>
+                        <path d="m14.83 9.17 4.24-4.24"></path>
+                    </svg>
+                    <span id="current-shader-name" class="hidden sm:inline font-mono text-[11px]" style="color: #f0abfc;">Aurora</span>
+                </button>
+
+                <!-- Menu de Ações ••• -->
+                <button id="actions-menu-btn" onclick="toggleActionsMenu(event)" class="apple-glass-icon-btn" title="Mais Opções">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="12" cy="12" r="2"></circle>
+                        <circle cx="19" cy="12" r="2"></circle>
+                        <circle cx="5" cy="12" r="2"></circle>
+                    </svg>
+                </button>
+
+                <!-- Popover de Ações de Vidro -->
+                <div id="actions-dropdown" class="apple-glass-dropdown" style="display: none;">
+                    <button onclick="createNewChat(); toggleActionsMenu();" class="dropdown-item">
+                        <span>＋</span> <span>Nova Conversa</span>
+                    </button>
+                    <button onclick="clearCurrentChat(); toggleActionsMenu();" class="dropdown-item" style="color: #7dd3fc;">
+                        <span>🧹</span> <span>Limpar Mensagens</span>
+                    </button>
+                    <button onclick="deleteChat(activeSessionId); toggleActionsMenu();" class="dropdown-item" style="color: #f87171;">
+                        <span>🗑️</span> <span>Apagar Conversa</span>
+                    </button>
+                    <div style="height: 1px; background: rgba(255, 255, 255, 0.12); margin: 0.25rem 0;"></div>
+                    <button id="dropdown-rotative-toggle" onclick="toggleRotativeMode(); toggleActionsMenu();" class="dropdown-item">
+                        <span>🔄</span> <span>Modo Rotativo: Ativo 🟢</span>
+                    </button>
+                    <button onclick="exportChatMarkdown(); toggleActionsMenu();" class="dropdown-item">
+                        <span>📥</span> <span>Exportar Markdown</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- ========================================================================= -->
+        <!-- MAIN TWO-PANE WORKSPACE                                                   -->
+        <!-- ========================================================================= -->
+        <div class="app-workspace">
+
+            <!-- SIDEBAR OVERLAY MOBILE -->
+            <div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleSidebar(false)"></div>
+
+            <!-- ===================================================================== -->
+            <!-- 1. SIDEBAR DE CHATS AGRUPADOS POR DATA                                -->
+            <!-- ===================================================================== -->
+            <aside id="chat-sidebar" class="glass-sidebar">
+                
+                <!-- Topo da Sidebar: Header & Novo Chat -->
+                <div style="padding: 0.85rem 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.10); display: flex; flex-direction: column; gap: 0.65rem;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span style="font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.6875rem; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.08em;">Histórico</span>
+                        
+                        <div style="display: flex; align-items: center; gap: 0.35rem;">
+                            <button onclick="clearAllHistory()" class="apple-glass-btn-minimal" style="padding: 0.15rem 0.45rem; font-size: 0.625rem; color: #fca5a5;" title="Apagar todas as conversas do histórico">
+                                Limpar Tudo
+                            </button>
+                            <button onclick="toggleSidebar(false)" class="apple-glass-icon-btn lg:hidden" style="width: 26px; height: 26px; font-size: 0.75rem;">
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Botão Novo Chat -->
+                    <button onclick="createNewChat()" class="apple-glass-btn apple-glass-btn-accent" style="width: 100%; justify-content: space-between; padding: 0.55rem 0.85rem;" title="Criar Nova Conversa">
+                        <span style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 0.95rem; font-weight: bold;">＋</span>
+                            <span style="font-weight: 600;">Nova Conversa</span>
+                        </span>
+                        <span class="apple-keycap">⌘K</span>
+                    </button>
+
+                    <!-- Barra de Busca -->
+                    <div style="position: relative; width: 100%;">
+                        <input id="chat-search-input" oninput="filterChatList(this.value)" type="text" placeholder="Buscar conversas..." style="width: 100%; padding: 0.45rem 1.8rem 0.45rem 0.85rem; font-size: 0.75rem; border-radius: 0.65rem; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.18); color: #ffffff; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);">
+                        <span style="position: absolute; right: 0.75rem; top: 0.45rem; font-size: 0.75rem; opacity: 0.6;">🔍</span>
+                    </div>
+                </div>
+
+                <!-- Lista de Histórico Agrupado por Data -->
+                <div id="chat-history-list" style="flex: 1; overflow-y: auto; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.4rem;">
+                    <!-- Injetado dinamicamente via JS -->
+                </div>
+
+                <!-- Rodapé da Sidebar Sutil -->
+                <div style="padding: 0.65rem 1rem; border-top: 1px solid rgba(255, 255, 255, 0.12); display: flex; align-items: center; justify-content: space-between; font-size: 0.65rem; font-family: ui-monospace, SFMono-Regular, monospace; color: #9ca3af;">
+                    <div style="display: flex; align-items: center; gap: 0.35rem;">
+                        <span style="width: 5px; height: 5px; border-radius: 50%; background: #10b981;"></span>
+                        <span>OmniRoute Conectado</span>
+                    </div>
+                    <span style="color: #6b7280;">v2026</span>
+                </div>
+            </aside>
+
+            <!-- ===================================================================== -->
+            <!-- 2. PAINEL PRINCIPAL DE CONVERSA (CENTRO & DIREITA)                    -->
+            <!-- ===================================================================== -->
+            <main class="chat-main-area">
+
+                <!-- Feed de Mensagens com Scroll -->
+                <div id="chat-messages-container" class="chat-feed">
+                    
+                    <!-- HERO EMPTY STATE -->
+                    <div id="chat-hero-screen" style="max-width: 760px; margin: 0 auto; padding: 1.5rem 1rem 2rem 1rem; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 1.25rem;">
+                        
+                        <!-- Avatar Central de Vidro -->
+                        <div style="width: 68px; height: 68px; border-radius: 50%; background: linear-gradient(135deg, rgba(255, 255, 255, 0.16) 0%, rgba(14, 165, 233, 0.25) 100%); border: 1px solid rgba(255, 255, 255, 0.32); box-shadow: 0 12px 36px rgba(0, 0, 0, 0.25), inset 0 1px 2px rgba(255, 255, 255, 0.6); display: flex; align-items: center; justify-content: center; color: #38bdf8;">
+                            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 2a4 4 0 0 1 4 4v1a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4Z"></path>
+                                <path d="M18 14v4a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-4"></path>
+                                <path d="M2 14h20"></path>
+                            </svg>
+                        </div>
+
+                        <div>
+                            <h2 style="font-size: 1.75rem; font-weight: 800; color: #ffffff; letter-spacing: -0.02em; margin-bottom: 0.5rem;">
+                                Tutor AI
+                            </h2>
+                            <p style="font-size: 0.875rem; color: #d1d5db; max-width: 480px; line-height: 1.6; margin: 0 auto;">
+                                Seu espaço tranquilo para conversar, clarear ideias e organizar seu dia com calma no <strong style="color: #7dd3fc;">Personal OS</strong>.
+                            </p>
+                        </div>
+
+                        <!-- Grid de 4 Sugestões Suaves de Conversa -->
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0.85rem; width: 100%; margin-top: 0.5rem;">
+                            
+                            <div onclick="sendQuickPrompt('Como está o andamento do meu dia hoje?')" class="prompt-card">
+                                <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; color: #7dd3fc; font-size: 0.8125rem;">
+                                    <span>🌿</span> <span>Como está meu dia?</span>
+                                </div>
+                                <span style="font-size: 0.725rem; color: #d1d5db; line-height: 1.45;">
+                                    Um resumo sereno dos seus hábitos, tarefas e minutos de foco de hoje.
+                                </span>
+                            </div>
+
+                            <div onclick="sendQuickPrompt('Quero começar um momento de foco com calma. O que faz sentido priorizar agora?')" class="prompt-card">
+                                <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; color: #a5f3fc; font-size: 0.8125rem;">
+                                    <span>🕯️</span> <span>Iniciar um foco tranquilo</span>
+                                </div>
+                                <span style="font-size: 0.725rem; color: #d1d5db; line-height: 1.45;">
+                                    Escolha uma única coisa com serenidade antes de iniciar um ciclo.
+                                </span>
+                            </div>
+
+                            <div onclick="sendQuickPrompt('Quero conversar um pouco para organizar meus pensamentos antes de anotar no diário.')" class="prompt-card">
+                                <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; color: #fde68a; font-size: 0.8125rem;">
+                                    <span>📔</span> <span>Conversar e clarear ideias</span>
+                                </div>
+                                <span style="font-size: 0.725rem; color: #d1d5db; line-height: 1.45;">
+                                    Desenvolva suas reflexões de hoje com leveza e registre se quiser.
+                                </span>
+                            </div>
+
+                            <div onclick="sendQuickPrompt('Me ajude a entender e simplificar um assunto complexo com calma, passo a passo.')" class="prompt-card">
+                                <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; color: #a7f3d0; font-size: 0.8125rem;">
+                                    <span>🧠</span> <span>Simplificar um assunto</span>
+                                </div>
+                                <span style="font-size: 0.725rem; color: #d1d5db; line-height: 1.45;">
+                                    Decomposição clara e paciente de temas difíceis em linguagem simples.
+                                </span>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- LISTA DINÂMICA DE MENSAGENS -->
+                    <div id="messages-list" style="display: flex; flex-direction: column; gap: 1.25rem; width: 100%; max-width: 820px; margin: 0 auto;"></div>
+
+                    <!-- TYPING INDICATOR -->
+                    <div id="typing-indicator" style="display: none; max-width: 820px; width: 100%; margin: 0 auto;">
+                        <div class="bubble-tutor-wrap">
+                            <div class="tutor-avatar">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 2a4 4 0 0 1 4 4v1a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4Z"></path>
+                                    <path d="M18 14v4a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-4"></path>
+                                    <path d="M2 14h20"></path>
+                                </svg>
+                            </div>
+                            <div class="bubble-tutor" style="padding: 0.85rem 1.25rem; display: inline-flex; align-items: center; gap: 0.65rem; width: auto;">
+                                <div style="display: flex; gap: 0.3rem; align-items: center;">
+                                    <span class="typing-dot"></span>
+                                    <span class="typing-dot"></span>
+                                    <span class="typing-dot"></span>
+                                </div>
+                                <span style="font-size: 0.75rem; color: #7dd3fc; font-family: ui-monospace, SFMono-Regular, monospace;">
+                                    Pensando com calma...
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- ===================================================================== -->
+                <!-- 3. INPUT MONUMENTAL DE VIDRO (RODAPÉ ULTRA-CLEAN)                     -->
+                <!-- ===================================================================== -->
+                <div class="chat-dock-container">
+                    <div class="chat-dock">
+                        <!-- Área de Digitação & Botão Enviar -->
+                        <div style="display: flex; align-items: flex-end; gap: 0.65rem; padding: 0.2rem 0.2rem 0 0.2rem;">
+                            <textarea id="chat-input" rows="1" placeholder="Converse com o Tutor AI..." style="flex: 1; resize: none; max-height: 140px; min-height: 28px; font-size: 0.9375rem; line-height: 1.5; color: #ffffff; padding: 0.4rem 0.35rem;"></textarea>
+
+                            <button id="send-button" onclick="handleSendMessage()" class="apple-glass-send-btn" title="Enviar Mensagem (Enter)">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                </svg>
+                            </button>
+                        </div>
+
+                        <!-- Rodapé Informativo Mínimo -->
+                        <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.5625rem; font-family: ui-monospace, SFMono-Regular, monospace; color: rgba(255, 255, 255, 0.4); padding: 0.15rem 0.35rem 0 0.35rem; border-top: 1px solid rgba(255, 255, 255, 0.08);">
+                            <span>Enter envia • Shift+Enter quebra linha</span>
+                            <span id="active-session-timestamp">Pronto</span>
+                        </div>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- MODAL DE CONFIRMAÇÃO DE VIDRO PURO (COMPATÍVEL MAC OS & ANDROID)          -->
+    <!-- ========================================================================= -->
+    <div id="confirm-modal-overlay" style="display: none; position: fixed; inset: 0; z-index: 99999; background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); align-items: center; justify-content: center; padding: 1.25rem;" onclick="if(event.target === this) closeConfirmDialog()">
+        <div id="confirm-modal-box" style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.88) 0%, rgba(15, 23, 42, 0.94) 100%); backdrop-filter: blur(32px) saturate(200%); -webkit-backdrop-filter: blur(32px) saturate(200%); border: 1px solid rgba(255, 255, 255, 0.3); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75), inset 0 1px 2px rgba(255, 255, 255, 0.45); border-radius: 1.25rem; max-width: 400px; width: 100%; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.15rem; animation: confirmPop 0.22s cubic-bezier(0.16, 1, 0.3, 1);">
+            <div style="display: flex; align-items: flex-start; gap: 0.9rem;">
+                <div id="confirm-modal-icon-wrap" style="width: 44px; height: 44px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.35rem; flex-shrink: 0; background: rgba(14, 165, 233, 0.2); border: 1px solid rgba(56, 189, 248, 0.4); color: #38bdf8;">
+                    🧹
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                    <h3 id="confirm-modal-title" style="font-size: 1.05rem; font-weight: 700; color: #ffffff; margin: 0; letter-spacing: -0.01em;">Limpar Chat</h3>
+                    <p id="confirm-modal-desc" style="font-size: 0.8125rem; color: #cbd5e1; margin: 0.35rem 0 0 0; line-height: 1.5;">Todas as mensagens desta conversa serão removidas.</p>
+                </div>
+            </div>
+            <div style="display: flex; gap: 0.65rem; justify-content: flex-end; align-items: center; padding-top: 0.45rem; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+                <button id="confirm-modal-cancel" onclick="closeConfirmDialog()" class="apple-glass-btn-minimal" style="padding: 0.5rem 1rem; font-size: 0.8125rem;">
+                    Cancelar
+                </button>
+                <button id="confirm-modal-action" onclick="executeConfirmDialog()" class="apple-glass-btn" style="padding: 0.5rem 1.15rem; font-size: 0.8125rem; font-weight: 600;">
+                    Confirmar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- LÓGICA E CONEXÃO COM O TUTOR AI & OMNIROUTE                               -->
+    <!-- ========================================================================= -->
+    <script>
+        const STORAGE_KEY = 'personal_os_chat_history_v1';
+        const ACTIVE_ID_KEY = 'personal_os_active_chat_session';
+
+        let sessions = {};
+        let activeSessionId = null;
+        let isWaitingResponse = false;
+
+        // 34 Shaders Oficiais idênticos aos da Home (index.html)
+        const SHADERS = [
+            'softaurora', 'particles', 'ghostfibers', 'plasmawave', 'strands', 'siderays', 
+            'beams', 'floatinglines', 'silk', 'radar', 'ripplegrid', 'pixelblast', 
+            'magicrings', 'gridscan', 'liquidchrome', 'linewaves', 'ferrofluid', 'dither', 
+            'darkveil', 'webthreads', 'topography', 'balatro', 'faultyterminal', 
+            'morphslider', 'antigravity', 'aurora', 'letterglitch', 'plasma', 
+            'liquidether', 'orb', 'prism', 'prismaticburst', 'lightning', 'evileye'
+        ];
+        let currentShaderIndex = 0;
+        let bgInterval = null;
+        let isRotative = localStorage.getItem('cartas_is_rotative') === 'true';
+        let rotativeSpeedSecs = parseInt(localStorage.getItem('cartas_rotative_speed') || '15', 10);
+
+        function updateShaderButtonLabel(name) {
+            const el = document.getElementById('current-shader-name');
+            if (el && name) {
+                const formatted = name.charAt(0).toUpperCase() + name.slice(1);
+                el.innerText = isRotative ? `🔄 ${formatted}` : formatted;
+                el.title = isRotative ? `Modo Rotativo Ativo (${rotativeSpeedSecs}s) - Shader: ${formatted}` : `Shader Fixo: ${formatted}`;
+            }
+            const rotToggle = document.getElementById('dropdown-rotative-toggle');
+            if (rotToggle) {
+                rotToggle.innerHTML = isRotative 
+                    ? '<span>🔄</span> <span>Modo Rotativo: Ativo 🟢</span>'
+                    : '<span>⏸️</span> <span>Modo Rotativo: Fixo</span>';
+            }
+        }
+
+        function rotateBackground() {
+            if (!isRotative || document.hidden) return;
+            const shader = SHADERS[currentShaderIndex];
+            const runner = window.setWebGLBackground || window.renderWebGLBackground;
+            if (typeof runner === 'function') {
+                runner(shader);
+                updateShaderButtonLabel(shader);
+            }
+            currentShaderIndex = (currentShaderIndex + 1) % SHADERS.length;
+        }
+
+        function startRotativeCycle() {
+            if (bgInterval) clearInterval(bgInterval);
+            bgInterval = setInterval(rotateBackground, rotativeSpeedSecs * 1000);
+        }
+
+        function cycleNextShader() {
+            isRotative = false;
+            localStorage.setItem('cartas_is_rotative', 'false');
+            if (bgInterval) { clearInterval(bgInterval); bgInterval = null; }
+
+            currentShaderIndex = (currentShaderIndex + 1) % SHADERS.length;
+            const chosen = SHADERS[currentShaderIndex];
+            localStorage.setItem('cartas_active_shader', chosen);
+            const runner = window.setWebGLBackground || window.renderWebGLBackground;
+            if (typeof runner === 'function') {
+                runner(chosen);
+            }
+            updateShaderButtonLabel(chosen);
+        }
+
+        function toggleRotativeMode() {
+            isRotative = !isRotative;
+            localStorage.setItem('cartas_is_rotative', isRotative ? 'true' : 'false');
+            if (isRotative) {
+                rotateBackground();
+                startRotativeCycle();
+            } else {
+                if (bgInterval) { clearInterval(bgInterval); bgInterval = null; }
+                const savedShader = localStorage.getItem('cartas_active_shader') || 'strands';
+                const runner = window.setWebGLBackground || window.renderWebGLBackground;
+                if (typeof runner === 'function') runner(savedShader);
+                updateShaderButtonLabel(savedShader);
+            }
+        }
+
+        function initShaderBackground() {
+            const check = () => {
+                const runner = window.setWebGLBackground || window.renderWebGLBackground;
+                if (typeof runner === 'function') {
+                    // Sincronização estrita com o estado e preferências vigentes da Home (index.html)
+                    isRotative = localStorage.getItem('cartas_is_rotative') === 'true';
+                    rotativeSpeedSecs = parseInt(localStorage.getItem('cartas_rotative_speed') || '15', 10);
+                    const savedShader = localStorage.getItem('cartas_active_shader') || 'strands';
+
+                    const idx = SHADERS.indexOf(savedShader);
+                    if (idx >= 0) currentShaderIndex = idx;
+
+                    if (isRotative) {
+                        rotateBackground();
+                        startRotativeCycle();
+                    } else {
+                        runner(savedShader);
+                        updateShaderButtonLabel(savedShader);
+                    }
+                } else {
+                    setTimeout(check, 100);
+                }
+            };
+            check();
+        }
+
+        // Execução imediata e independente do background engine
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initShaderBackground);
+        } else {
+            initShaderBackground();
+        }
+
+        // Sincronização em tempo real de insets do Android Bridge
+        window.addEventListener('androidbridge:ready', (e) => {
+            if (e.detail && typeof e.detail.safeTop !== 'undefined') {
+                document.documentElement.style.setProperty('--safe-top', e.detail.safeTop + 'px');
+                document.documentElement.style.setProperty('--safe-bottom', e.detail.safeBottom + 'px');
+            }
+        });
+
+        window.addEventListener('pageshow', () => {
+            initShaderBackground();
+        });
+
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'cartas_active_shader' || e.key === 'cartas_is_rotative' || e.key === 'cartas_rotative_speed') {
+                initShaderBackground();
+            }
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && isRotative && !bgInterval) {
+                startRotativeCycle();
+            } else if (document.hidden && bgInterval) {
+                clearInterval(bgInterval);
+                bgInterval = null;
+            }
+        });
+
+        function isNativeOrCustomProtocol() {
+            if (typeof window === 'undefined') return false;
+            return (
+                window.location.hostname === 'tauri.localhost' ||
+                window.location.protocol === 'tauri:' ||
+                window.location.protocol === 'personalos:' ||
+                window.location.protocol === 'file:' ||
+                window.__IS_NATIVE_APP__ ||
+                window.__MACOS_NATIVE__ ||
+                typeof window.AndroidBridge !== 'undefined'
+            );
+        }
+
+        // Endpoint universal
+        function getApiUrl() {
+            return isNativeOrCustomProtocol() ? 'https://m-c-p-os-personal-os-1.vercel.app/api/chat' : '/api/chat';
+        }
+
+        // ==========================================
+        // GESTÃO DE SESSÕES
+        // ==========================================
+        function loadSessions() {
+            try {
+                sessions = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+            } catch {
+                sessions = {};
+            }
+
+            activeSessionId = localStorage.getItem(ACTIVE_ID_KEY);
+            if (!activeSessionId || !sessions[activeSessionId]) {
+                const keys = Object.keys(sessions);
+                if (keys.length > 0) {
+                    keys.sort((a, b) => new Date(sessions[b].updatedAt || 0) - new Date(sessions[a].updatedAt || 0));
+                    activeSessionId = keys[0];
+                } else {
+                    createNewChat(false);
+                }
+            }
+
+            renderSidebarHistory();
+            renderActiveChat();
+            fetchLiveAuditBadges();
+            initShaderBackground();
+        }
+
+        function saveSessions() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+                localStorage.setItem(ACTIVE_ID_KEY, activeSessionId);
+            } catch (e) {
+                console.warn('[Chat] Erro ao persistir sessões:', e);
+            }
+        }
+
+        function createNewChat(autoFocus = true) {
+            const newId = 'session_' + Date.now();
+            sessions[newId] = {
+                id: newId,
+                title: 'Nova Conversa',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                messages: []
+            };
+            activeSessionId = newId;
+            saveSessions();
+            renderSidebarHistory();
+            renderActiveChat();
+            if (autoFocus) {
+                const input = document.getElementById('chat-input');
+                if (input) input.focus();
+            }
+            toggleSidebar(false);
+        }
+
+        function selectSession(sessionId) {
+            if (!sessions[sessionId]) return;
+            activeSessionId = sessionId;
+            saveSessions();
+            renderSidebarHistory();
+            renderActiveChat();
+            toggleSidebar(false);
+        }
+
+        // ==========================================
+        // DIÁLOGO DE CONFIRMAÇÃO DE VIDRO PURO
+        // ==========================================
+        let currentConfirmCallback = null;
+
+        function showConfirmDialog({ title, message, icon = '🧹', actionText = 'Confirmar', isDanger = false, onConfirm }) {
+            const overlay = document.getElementById('confirm-modal-overlay');
+            const titleEl = document.getElementById('confirm-modal-title');
+            const descEl = document.getElementById('confirm-modal-desc');
+            const iconWrap = document.getElementById('confirm-modal-icon-wrap');
+            const actionBtn = document.getElementById('confirm-modal-action');
+
+            if (!overlay || !titleEl || !descEl || !iconWrap || !actionBtn) {
+                if (confirm(`${title}\n\n${message}`)) {
+                    if (typeof onConfirm === 'function') onConfirm();
+                }
+                return;
+            }
+
+            titleEl.textContent = title;
+            descEl.textContent = message;
+            iconWrap.innerHTML = icon;
+            actionBtn.textContent = actionText;
+
+            if (isDanger) {
+                iconWrap.style.background = 'rgba(239, 68, 68, 0.2)';
+                iconWrap.style.borderColor = 'rgba(248, 113, 113, 0.4)';
+                iconWrap.style.color = '#f87171';
+                actionBtn.style.background = 'linear-gradient(135deg, rgba(239, 68, 68, 0.85) 0%, rgba(220, 38, 38, 0.95) 100%)';
+                actionBtn.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+                actionBtn.style.color = '#ffffff';
+            } else {
+                iconWrap.style.background = 'rgba(14, 165, 233, 0.2)';
+                iconWrap.style.borderColor = 'rgba(56, 189, 248, 0.4)';
+                iconWrap.style.color = '#38bdf8';
+                actionBtn.style.background = 'linear-gradient(135deg, rgba(14, 165, 233, 0.85) 0%, rgba(2, 132, 199, 0.95) 100%)';
+                actionBtn.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+                actionBtn.style.color = '#ffffff';
+            }
+
+            currentConfirmCallback = onConfirm;
+            overlay.style.display = 'flex';
+        }
+
+        function closeConfirmDialog() {
+            const overlay = document.getElementById('confirm-modal-overlay');
+            if (overlay) overlay.style.display = 'none';
+            currentConfirmCallback = null;
+        }
+
+        function executeConfirmDialog() {
+            const cb = currentConfirmCallback;
+            closeConfirmDialog();
+            if (typeof cb === 'function') {
+                cb();
+            }
+        }
+
+        function clearCurrentChat() {
+            if (!activeSessionId || !sessions[activeSessionId]) return;
+            const current = sessions[activeSessionId];
+            const msgCount = (current.messages || []).length;
+            if (msgCount === 0) return;
+
+            showConfirmDialog({
+                title: 'Limpar Chat',
+                message: `Deseja remover todas as ${msgCount} mensagens desta conversa? O chat voltará ao estado inicial com o Tutor AI.`,
+                icon: '🧹',
+                actionText: 'Limpar Mensagens',
+                isDanger: false,
+                onConfirm: () => {
+                    current.messages = [];
+                    current.updatedAt = new Date().toISOString();
+                    saveSessions();
+                    renderSidebarHistory();
+                    renderActiveChat();
+                }
+            });
+        }
+        function clearCurrentChatMessages() {
+            clearCurrentChat();
+        }
+
+        function deleteChat(sessionId = activeSessionId) {
+            if (!sessionId || !sessions[sessionId]) return;
+            const targetTitle = sessions[sessionId].title || 'Conversa';
+            showConfirmDialog({
+                title: 'Apagar Conversa',
+                message: `Deseja apagar permanentemente a conversa "${targetTitle}"? O histórico desta sessão será excluído.`,
+                icon: '🗑️',
+                actionText: 'Apagar Conversa',
+                isDanger: true,
+                onConfirm: () => {
+                    delete sessions[sessionId];
+                    const keys = Object.keys(sessions);
+                    if (keys.length > 0) {
+                        keys.sort((a, b) => new Date(sessions[b].updatedAt || 0) - new Date(sessions[a].updatedAt || 0));
+                        activeSessionId = keys[0];
+                    } else {
+                        createNewChat(false);
+                    }
+                    saveSessions();
+                    renderSidebarHistory();
+                    renderActiveChat();
+                }
+            });
+        }
+        function deleteSession(sessionId, event) {
+            if (event) event.stopPropagation();
+            deleteChat(sessionId);
+        }
+
+        function clearAllHistory() {
+            const keys = Object.keys(sessions);
+            if (keys.length === 0) return;
+            showConfirmDialog({
+                title: 'Limpar Todo o Histórico',
+                message: `Deseja apagar todas as ${keys.length} conversas salvas no Tutor AI? Esta ação não pode ser desfeita.`,
+                icon: '🗑️',
+                actionText: 'Apagar Tudo',
+                isDanger: true,
+                onConfirm: () => {
+                    sessions = {};
+                    createNewChat(false);
+                }
+            });
+        }
+
+        // ==========================================
+        // AGRUPAMENTO DE CHATS POR DATA
+        // ==========================================
+        function groupSessionsByDate(sessionList) {
+            const now = new Date();
+            const todayStr = now.toISOString().slice(0, 10);
+
+            const yesterday = new Date(now);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayStr = yesterday.toISOString().slice(0, 10);
+
+            const sevenDaysAgo = new Date(now);
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+            const thirtyDaysAgo = new Date(now);
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+            const groups = {
+                'Hoje': [],
+                'Ontem': [],
+                'Últimos 7 dias': [],
+                'Últimos 30 dias': [],
+                'Anteriores': []
+            };
+
+            sessionList.forEach(session => {
+                const d = new Date(session.updatedAt || session.createdAt || 0);
+                const dateStr = d.toISOString().slice(0, 10);
+
+                if (dateStr === todayStr) {
+                    groups['Hoje'].push(session);
+                } else if (dateStr === yesterdayStr) {
+                    groups['Ontem'].push(session);
+                } else if (d >= sevenDaysAgo) {
+                    groups['Últimos 7 dias'].push(session);
+                } else if (d >= thirtyDaysAgo) {
+                    groups['Últimos 30 dias'].push(session);
+                } else {
+                    groups['Anteriores'].push(session);
+                }
+            });
+
+            return groups;
+        }
+
+        function renderSidebarHistory(filterQuery = '') {
+            const container = document.getElementById('chat-history-list');
+            if (!container) return;
+
+            let allSessions = Object.values(sessions);
+            allSessions.sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+
+            if (filterQuery.trim()) {
+                const q = filterQuery.toLowerCase();
+                allSessions = allSessions.filter(s => 
+                    (s.title || '').toLowerCase().includes(q) ||
+                    (s.messages || []).some(m => (m.content || '').toLowerCase().includes(q))
+                );
+            }
+
+            const groups = groupSessionsByDate(allSessions);
+            container.innerHTML = '';
+
+            let hasAny = false;
+
+            for (const [groupName, groupItems] of Object.entries(groups)) {
+                if (groupItems.length === 0) continue;
+                hasAny = true;
+
+                const groupHeader = document.createElement('div');
+                groupHeader.style.cssText = 'font-size: 0.625rem; font-family: ui-monospace, SFMono-Regular, monospace; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.08em; padding: 0.4rem 0.5rem 0.2rem 0.5rem;';
+                groupHeader.textContent = groupName;
+                container.appendChild(groupHeader);
+
+                groupItems.forEach(session => {
+                    const isActive = session.id === activeSessionId;
+                    const item = document.createElement('div');
+                    item.className = 'history-item' + (isActive ? ' active' : '');
+                    item.onclick = () => selectSession(session.id);
+
+                    const leftBox = document.createElement('div');
+                    leftBox.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;';
+                    leftBox.innerHTML = `
+                        <span style="font-size: 0.75rem;">${isActive ? '💬' : '🗨️'}</span>
+                        <span style="font-size: 0.75rem; font-weight: ${isActive ? '700' : '500'}; color: ${isActive ? '#ffffff' : '#d1d5db'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(session.title || 'Conversa')}</span>
+                    `;
+
+                    const delBtn = document.createElement('button');
+                    delBtn.className = 'del-btn';
+                    delBtn.title = 'Apagar conversa do histórico';
+                    delBtn.innerHTML = `
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                    `;
+                    delBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        deleteChat(session.id);
+                    };
+
+                    item.appendChild(leftBox);
+                    item.appendChild(delBtn);
+                    container.appendChild(item);
+                });
+            }
+
+            if (!hasAny) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 2rem 1rem; font-size: 0.75rem; color: #6b7280; font-family: ui-monospace, SFMono-Regular, monospace;">
+                        Nenhuma conversa encontrada.
+                    </div>
+                `;
+            }
+        }
+
+        function filterChatList(q) {
+            renderSidebarHistory(q);
+        }
+
+        function toggleActionsMenu(event) {
+            if (event) event.stopPropagation();
+            const dd = document.getElementById('actions-dropdown');
+            if (!dd) return;
+            dd.style.display = dd.style.display === 'none' ? 'flex' : 'none';
+        }
+        document.addEventListener('click', (e) => {
+            const dd = document.getElementById('actions-dropdown');
+            const btn = document.getElementById('actions-menu-btn');
+            if (dd && dd.style.display !== 'none' && !dd.contains(e.target) && btn && !btn.contains(e.target)) {
+                dd.style.display = 'none';
+            }
+        });
+
+        // ==========================================
+        // RENDERIZAÇÃO DO CHAT
+        // ==========================================
+        function renderActiveChat() {
+            const current = sessions[activeSessionId];
+            const messagesContainer = document.getElementById('messages-list');
+            const heroScreen = document.getElementById('chat-hero-screen');
+            const titleEl = document.getElementById('active-chat-title');
+            const timestampEl = document.getElementById('active-session-timestamp');
+
+            if (!current) return;
+
+            titleEl.textContent = current.title || 'Conversa com Tutor AI';
+            const dateObj = new Date(current.updatedAt || current.createdAt || Date.now());
+            timestampEl.textContent = 'Atualizado às ' + dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            const msgs = current.messages || [];
+
+            if (msgs.length === 0) {
+                heroScreen.style.display = 'flex';
+                messagesContainer.innerHTML = '';
+                const feed = document.getElementById('chat-messages-container');
+                if (feed) feed.scrollTop = 0;
+            } else {
+                heroScreen.style.display = 'none';
+                messagesContainer.innerHTML = '';
+
+                msgs.forEach(msg => {
+                    if (msg.role === 'user') {
+                        const row = document.createElement('div');
+                        row.className = 'bubble-user-wrap';
+                        row.innerHTML = `
+                            <div class="bubble-user">
+                                ${escapeHtml(msg.content).replace(/\n/g, '<br>')}
+                            </div>
+                            <span style="font-size: 0.625rem; color: #6b7280; font-family: ui-monospace, SFMono-Regular, monospace; padding-right: 0.35rem;">Você</span>
+                        `;
+                        messagesContainer.appendChild(row);
+                    } else {
+                        const row = document.createElement('div');
+                        row.className = 'bubble-tutor-wrap';
+                        row.innerHTML = `
+                            <div class="tutor-avatar">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 2a4 4 0 0 1 4 4v1a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4Z"></path>
+                                    <path d="M18 14v4a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-4"></path>
+                                    <path d="M2 14h20"></path>
+                                </svg>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 0.35rem; flex: 1; min-width: 0;">
+                                <div class="bubble-tutor">
+                                    ${renderSafeMarkdown(msg.content)}
+                                    ${msg.actionHtml ? `<div style="margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.35rem;">${msg.actionHtml}</div>` : ''}
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.625rem; color: #6b7280; font-family: ui-monospace, SFMono-Regular, monospace; padding-left: 0.35rem;">
+                                    <span>Tutor AI</span>
+                                    <span>•</span>
+                                    <button onclick="copyToClipboard('${escapeJsString(msg.content)}')" style="color: #38bdf8; cursor: pointer; text-decoration: underline;">Copiar</button>
+                                </div>
+                            </div>
+                        `;
+                        messagesContainer.appendChild(row);
+                    }
+                });
+                scrollToBottom();
+            }
+        }
+
+        function scrollToBottom() {
+            const container = document.getElementById('chat-messages-container');
+            if (container) {
+                setTimeout(() => {
+                    container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+                }, 40);
+            }
+        }
+
+        // ==========================================
+        // ENVIO DE MENSAGEM & REQUISIÇÃO À API
+        // ==========================================
+        async function handleSendMessage() {
+            const input = document.getElementById('chat-input');
+            const sendBtn = document.getElementById('send-button');
+            const text = input.value.trim();
+
+            if (!text || isWaitingResponse) return;
+
+            isWaitingResponse = true;
+            input.value = '';
+            input.style.height = 'auto';
+            sendBtn.style.opacity = '0.5';
+
+            const current = sessions[activeSessionId];
+            if (!current) return;
+
+            // Adiciona mensagem do usuário
+            current.messages.push({ role: 'user', content: text });
+
+            if (current.messages.length === 1 || current.title === 'Nova Conversa') {
+                current.title = text.slice(0, 36) + (text.length > 36 ? '...' : '');
+            }
+            current.updatedAt = new Date().toISOString();
+            saveSessions();
+            renderSidebarHistory();
+            renderActiveChat();
+
+            const typingIndicator = document.getElementById('typing-indicator');
+            if (typingIndicator) typingIndicator.style.display = 'block';
+            scrollToBottom();
+
+            try {
+                const endpoint = getApiUrl();
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sessionId: activeSessionId,
+                        message: text,
+                        history: current.messages.slice(0, -1)
+                    })
+                });
+
+                let data;
+                try {
+                    data = await response.json();
+                } catch(parseErr) {
+                    throw new Error(`Resposta inesperada do gateway (HTTP ${response.status})`);
+                }
+
+                if (typingIndicator) typingIndicator.style.display = 'none';
+
+                if (response.ok && data.success && data.reply) {
+                    // Monta representação visual das ações executadas internamente
+                    let actionHtml = '';
+                    if (Array.isArray(data.executedActions) && data.executedActions.length > 0) {
+                        data.executedActions.forEach(act => {
+                            if (act.action === 'start_pomodoro') {
+                                const dur = act.params?.duration_minutes || 25;
+                                actionHtml += `
+                                    <div class="tutor-action-pill" style="display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 8px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.35); font-size: 0.72rem; color: #38bdf8; font-family: ui-monospace, monospace;">
+                                        <span>⏱️</span>
+                                        <span><strong>Foco iniciado:</strong> ${dur} minutos</span>
+                                    </div>
+                                `;
+                                try {
+                                    localStorage.setItem('personal_os_active_pomodoro', JSON.stringify({
+                                        running: true,
+                                        durationMinutes: dur,
+                                        startedAt: Date.now(),
+                                        durationMs: dur * 60000
+                                    }));
+                                    window.dispatchEvent(new CustomEvent('personalos:pomodoro_started', { detail: { durationMinutes: dur } }));
+                                } catch (e) {}
+                            } else if (act.action === 'stop_pomodoro') {
+                                actionHtml += `
+                                    <div class="tutor-action-pill" style="display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 8px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.35); font-size: 0.72rem; color: #f87171; font-family: ui-monospace, monospace;">
+                                        <span>⏹️</span>
+                                        <span><strong>Pomodoro:</strong> Ciclo pausado ou concluído</span>
+                                    </div>
+                                `;
+                            } else if (act.action === 'create_todo') {
+                                actionHtml += `
+                                    <div class="tutor-action-pill" style="display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 8px; background: rgba(52, 211, 153, 0.15); border: 1px solid rgba(52, 211, 153, 0.35); font-size: 0.72rem; color: #34d399; font-family: ui-monospace, monospace;">
+                                        <span>📌</span>
+                                        <span><strong>Tarefa anotada:</strong> ${escapeHtml(act.params?.title || 'Nova tarefa')}</span>
+                                    </div>
+                                `;
+                            } else if (act.action === 'complete_todo') {
+                                actionHtml += `
+                                    <div class="tutor-action-pill" style="display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 8px; background: rgba(52, 211, 153, 0.15); border: 1px solid rgba(52, 211, 153, 0.35); font-size: 0.72rem; color: #34d399; font-family: ui-monospace, monospace;">
+                                        <span>✅</span>
+                                        <span><strong>Tarefa concluída:</strong> ${escapeHtml(act.params?.title || act.result?.title || 'Concluída')}</span>
+                                    </div>
+                                `;
+                            } else if (act.action === 'delete_todo') {
+                                actionHtml += `
+                                    <div class="tutor-action-pill" style="display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 8px; background: rgba(148, 163, 184, 0.15); border: 1px solid rgba(148, 163, 184, 0.35); font-size: 0.72rem; color: #cbd5e1; font-family: ui-monospace, monospace;">
+                                        <span>🗑️</span>
+                                        <span><strong>Tarefa removida:</strong> ${escapeHtml(act.params?.title || 'Removida')}</span>
+                                    </div>
+                                `;
+                            } else if (act.action === 'complete_habit') {
+                                actionHtml += `
+                                    <div class="tutor-action-pill" style="display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 8px; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.35); font-size: 0.72rem; color: #fbbf24; font-family: ui-monospace, monospace;">
+                                        <span>🌿</span>
+                                        <span><strong>Hábito marcado:</strong> ${escapeHtml(act.params?.title || act.result?.habit || 'Hábito de hoje')}</span>
+                                    </div>
+                                `;
+                            } else if (act.action === 'create_habit') {
+                                actionHtml += `
+                                    <div class="tutor-action-pill" style="display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 8px; background: rgba(52, 211, 153, 0.15); border: 1px solid rgba(52, 211, 153, 0.35); font-size: 0.72rem; color: #34d399; font-family: ui-monospace, monospace;">
+                                        <span>🌱</span>
+                                        <span><strong>Novo hábito criado:</strong> ${escapeHtml(act.params?.title || 'Novo hábito')}</span>
+                                    </div>
+                                `;
+                            } else if (act.action === 'create_diary_entry') {
+                                actionHtml += `
+                                    <div class="tutor-action-pill" style="display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 8px; background: rgba(168, 85, 247, 0.15); border: 1px solid rgba(168, 85, 247, 0.35); font-size: 0.72rem; color: #c084fc; font-family: ui-monospace, monospace;">
+                                        <span>📖</span>
+                                        <span><strong>Diário atualizado:</strong> Reflexão salva com carinho</span>
+                                    </div>
+                                `;
+                            } else if (act.action === 'navigate') {
+                                const targetUrl = act.params?.page ? `${act.params.page}.html` : 'index.html';
+                                actionHtml += `
+                                    <div class="tutor-action-pill" style="display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 8px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.35); font-size: 0.72rem; color: #38bdf8; font-family: ui-monospace, monospace;">
+                                        <span>✨</span>
+                                        <span><strong>Abrindo tela:</strong> ${act.params?.page}...</span>
+                                    </div>
+                                `;
+                                setTimeout(() => {
+                                    window.location.href = targetUrl;
+                                }, 1200);
+                            }
+                        });
+                    }
+
+                    current.messages.push({
+                        role: 'assistant',
+                        content: data.reply,
+                        actionHtml: actionHtml || null
+                    });
+
+                    if (data.auditSnapshot) {
+                        updateAuditBadges(data.auditSnapshot);
+                    } else {
+                        fetchLiveAuditBadges();
+                    }
+                } else {
+                    current.messages.push({ 
+                        role: 'assistant', 
+                        content: `⚠️ **Aviso:** ${data.error || 'Não foi possível obter resposta do Tutor AI.'}` 
+                    });
+                }
+            } catch (err) {
+                if (typingIndicator) typingIndicator.style.display = 'none';
+                current.messages.push({
+                    role: 'assistant',
+                    content: `⚠️ **Falha de Conexão com o Gateway:** ${err.message}`
+                });
+            } finally {
+                isWaitingResponse = false;
+                sendBtn.style.opacity = '1';
+                current.updatedAt = new Date().toISOString();
+                saveSessions();
+                renderSidebarHistory();
+                renderActiveChat();
+                if (window.innerWidth > 1023) input.focus();
+            }
+        }
+
+        function sendQuickPrompt(promptText) {
+            const input = document.getElementById('chat-input');
+            if (input) {
+                input.value = promptText;
+                handleSendMessage();
+            }
+        }
+
+        // ==========================================
+        // DADOS DE AUDITORIA EM TEMPO REAL
+        // ==========================================
+        async function fetchLiveAuditBadges() {
+            try {
+                const apiBase = isNativeOrCustomProtocol() ? 'https://m-c-p-os-personal-os-1.vercel.app' : '';
+                const res = await fetch(`${apiBase}/api/universal?scope=all`, {
+                    headers: { 'Authorization': 'Bearer mcpos_ai_agent_universal_key_2026' }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    updateAuditBadges({
+                        hasWrittenDiary: !!data?.diary?.has_written_today,
+                        habitsRate: data?.habits?.completion_rate_percent !== undefined ? `${data.habits.completion_rate_percent}%` : '0%',
+                        focusMinutes: data?.pomodoro?.summary?.today_minutes || 0
+                    });
+                }
+            } catch(e) {
+                console.warn('[Audit] Falha ao carregar badges de auditoria:', e);
+            }
+        }
+
+        function updateAuditBadges(audit) {
+            const diaryBadgeText = document.getElementById('badge-diary-text');
+            const diaryBadge = document.getElementById('badge-diary');
+            const habitsBadgeText = document.getElementById('badge-habits-text');
+            const focusBadgeText = document.getElementById('badge-focus-text');
+
+            if (diaryBadgeText && diaryBadge) {
+                if (audit.hasWrittenDiary) {
+                    diaryBadgeText.textContent = 'Diário: Escrito ✓';
+                    diaryBadge.className = 'glass-pill glass-pill-emerald';
+                } else {
+                    diaryBadgeText.textContent = 'Diário: Pendente ⏳';
+                    diaryBadge.className = 'glass-pill glass-pill-amber';
+                }
+            }
+
+            if (habitsBadgeText) {
+                habitsBadgeText.textContent = `Hábitos: ${audit.habitsRate || '0%'}`;
+            }
+
+            if (focusBadgeText) {
+                focusBadgeText.textContent = `${audit.focusMinutes || 0}m foco`;
+            }
+        }
+
+        // ==========================================
+        // UI HELPERS & ATALHOS
+        // ==========================================
+        function toggleSidebar(open) {
+            const sidebar = document.getElementById('chat-sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            if (!sidebar || !overlay) return;
+
+            const isOpen = sidebar.classList.contains('open');
+            const target = typeof open === 'boolean' ? open : !isOpen;
+
+            if (target) {
+                sidebar.classList.add('open');
+                overlay.classList.add('active');
+            } else {
+                sidebar.classList.remove('open');
+                overlay.classList.remove('active');
+            }
+        }
+
+        function exportChatMarkdown() {
+            const current = sessions[activeSessionId];
+            if (!current || !current.messages || current.messages.length === 0) {
+                alert('Nenhuma mensagem para exportar.');
+                return;
+            }
+
+            let md = `# Conversa com Tutor AI — ${current.title}\n`;
+            md += `*Data: ${new Date(current.createdAt).toLocaleString()}*\n\n---\n\n`;
+
+            current.messages.forEach(msg => {
+                const author = msg.role === 'user' ? 'Celestino PRO' : 'Tutor AI';
+                md += `### ${author}\n\n${msg.content}\n\n---\n\n`;
+            });
+
+            const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `tutor_chat_${Date.now()}.md`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Mensagem copiada para a área de transferência!');
+            }).catch(() => {
+                prompt('Copie o texto abaixo:', text);
+            });
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        function escapeJsString(str) {
+            if (!str) return '';
+            return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n');
+        }
+
+        function renderSafeMarkdown(text) {
+            if (!text) return '';
+            try {
+                if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+                    return DOMPurify.sanitize(marked.parse(text));
+                }
+            } catch(e) {}
+            return '<p>' + escapeHtml(text).replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>') + '</p>';
+        }
+
+        // Auto-resize do textarea
+        const inputArea = document.getElementById('chat-input');
+        if (inputArea) {
+            inputArea.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 140) + 'px';
+            });
+
+            inputArea.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                }
+            });
+        }
+
+        // Atalho Global ⌘K para novo chat
+        window.addEventListener('keydown', function(e) {
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                createNewChat();
+            }
+            if (e.key === 'Escape') {
+                closeConfirmDialog();
+                toggleSidebar(false);
+            }
+        });
+
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', loadSessions);
+    </script>
+</body>
+</html>
